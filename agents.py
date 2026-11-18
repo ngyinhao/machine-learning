@@ -19,9 +19,11 @@ class Agent:
         pass
 
 
-def greedy(values, random_source):
-    best = max(values)
-    return random_source.choice([action for action, value in enumerate(values) if value == best])
+def greedy(values, random_source, actions=None):
+    if actions is None:
+        actions = range(len(values))
+    best = max(values[action] for action in actions)
+    return random_source.choice([action for action in actions if values[action] == best])
 
 
 class TabularTD(Agent):
@@ -132,28 +134,33 @@ class QNetwork:
 class DQN(Agent):
     uses_epsilon = True
 
-    def __init__(self, width, height, phases, horizon, actions, gamma, seed):
+    def __init__(self, width, height, phases, horizon, actions, gamma, seed, valid_actions, potential):
         self.random = Random(seed)
         self.network = QNetwork(width, height, phases, horizon, actions, self.random)
         self.target = deepcopy(self.network)
         self.replay = deque(maxlen=5000)
         self.transitions = 0
         self.gamma = gamma
-        self.actions = actions
+        self.valid_actions = valid_actions
+        self.potential = potential
 
     def select(self, state, epsilon, random_source, learn):
+        actions = self.valid_actions[state[0]]
         if random_source.random() < epsilon:
-            return random_source.randrange(self.actions)
-        return greedy(self.network.values(state), random_source)
+            return random_source.choice(actions)
+        return greedy(self.network.values(state), random_source, actions)
 
     def observe(self, state, action, reward, next_state, next_action):
-        self.replay.append((state, action, reward / 100.0, next_state))
+        next_potential = self.potential(next_state) if next_state is not None else 0.0
+        shaping_reward = self.gamma * next_potential - self.potential(state)
+        self.replay.append((state, action, (reward + shaping_reward) / 100.0, next_state))
         self.transitions += 1
         if len(self.replay) >= 128 and self.transitions % 4 == 0:
             for sample_state, sample_action, sample_reward, sample_next in self.random.sample(self.replay, 4):
                 target = sample_reward
                 if sample_next is not None:
-                    target += self.gamma * max(self.target.values(sample_next))
+                    future = self.target.values(sample_next)
+                    target += self.gamma * max(future[option] for option in self.valid_actions[sample_next[0]])
                 self.network.train(sample_state, sample_action, target)
         if self.transitions % 250 == 0:
             self.target = deepcopy(self.network)

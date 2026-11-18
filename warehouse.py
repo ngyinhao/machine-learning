@@ -178,15 +178,25 @@ def demo_route(round_trip=False):
     return reference_trace("none", 0, round_trip, "balanced", 2.0)
 
 
+def dqn_potential(state, round_trip):
+    position, _, _, returning = state
+    goal = START if returning else DOCK
+    distance = sum(abs(source - target) for source, target in zip(position, goal))
+    if round_trip and not returning:
+        distance += sum(abs(dock - home) for dock, home in zip(DOCK, START))
+    return -10 * distance
+
+
 AGENTS = {
     "q_learning": TabularTD,
     "sarsa": TabularTD,
-    "dqn": lambda seed: DQN(
-        len(LAYOUT[0]), len(LAYOUT), len(PATROL), HORIZON, len(ACTIONS), GAMMA, seed
+    "dqn": lambda seed, round_trip: DQN(
+        len(LAYOUT[0]), len(LAYOUT), len(PATROL), HORIZON, len(ACTIONS), GAMMA, seed,
+        VALID_ACTIONS, lambda state: dqn_potential(state, round_trip),
     ),
-    "reinforce": lambda seed: Reinforce(len(ACTIONS), GAMMA),
-    "actor_critic": lambda seed: ActorCritic(len(ACTIONS), GAMMA),
-    "ppo": lambda seed: PPO(len(ACTIONS), GAMMA, seed),
+    "reinforce": lambda seed, _round_trip: Reinforce(len(ACTIONS), GAMMA),
+    "actor_critic": lambda seed, _round_trip: ActorCritic(len(ACTIONS), GAMMA),
+    "ppo": lambda seed, _round_trip: PPO(len(ACTIONS), GAMMA, seed),
 }
 
 
@@ -212,7 +222,7 @@ class TrainingRun:
                 defaults["initial_q"] if initial_q is None else initial_q, VALID_ACTIONS,
             )
         else:
-            self.agent = AGENTS[algorithm](seed)
+            self.agent = AGENTS[algorithm](seed, round_trip)
         self.history = []
 
     def _episode(self, environment, random_source, epsilon, learn, trace, episode):
