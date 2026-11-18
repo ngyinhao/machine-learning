@@ -41,7 +41,7 @@ python scripts/check_dashboard.py
 python scripts/check_dashboard.py --hosted
 ```
 
-Each check starts a separate server on a free port, opens the dashboard, trains for 25 episodes, and replays the resulting policy. It shuts down its server when finished. On Windows with Microsoft Edge installed, add `--channel msedge` to both checks and skip the Chromium download.
+Each check starts a separate server on a free port and opens the dashboard. It trains Q-learning and PPO for 25 episodes each and replays both trained policies. It shuts down its server when finished. On Windows with Microsoft Edge installed, add `--channel msedge` to both checks and skip the Chromium download.
 
 Push feature branches and open pull requests to `main`. GitHub Actions runs the `Dashboard smoke` job on those pull requests. The branch protection rule requires that check to pass on an up-to-date branch before merging, including for repository admins.
 
@@ -59,8 +59,9 @@ The completion rate and mean return show the latest 25 training episodes, or all
 
 - **Value-based** learners include tabular Q-learning, SARSA, and a Deep Q-Network (DQN). All three use the displayed ε-greedy exploration schedule.
 - **Policy-based** REINFORCE learns a probability distribution over actions from completed episodes.
-- **Hybrid** Actor–Critic learns a policy and a value estimate together. Like REINFORCE, it samples from the learned action probabilities during training.
-- **Explore-Then-Commit** compares three preset routes by observed mean return and then follows the best one for the rest of training. Its exploration is over routes. The dashboard shows `N/A` and the CSV leaves ε blank for methods without ε-greedy exploration.
+- **Hybrid** methods include Actor–Critic and Proximal Policy Optimization (PPO). Both learn a policy and a value estimate and sample from the learned action probabilities during training. PPO applies multiple updates per episode using a clipped policy objective.
+
+The dashboard shows `N/A` and the CSV leaves ε blank for methods without ε-greedy exploration.
 
 ## Warehouse simulator
 

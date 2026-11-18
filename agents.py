@@ -228,31 +228,33 @@ class ActorCritic(SoftmaxPolicy):
         self.discount *= self.gamma
 
 
-class ExploreThenCommit(Agent):
-    def __init__(self, routes, episodes, horizon):
-        self.routes = routes
-        self.horizon = horizon
-        self.exploration_episodes = len(routes) * max(1, episodes // (4 * len(routes)))
-        self.counts = [0] * len(routes)
-        self.totals = [0.0] * len(routes)
-        self.training_route = 0
+class PPO(SoftmaxPolicy):
+    def __init__(self, actions, gamma, seed):
+        super().__init__(actions, gamma)
+        self.critic = defaultdict(float)
+        self.trajectory = []
+        self.random = Random(seed)
 
-    def _best_route(self):
-        tried = [index for index, count in enumerate(self.counts) if count]
-        return max(tried, key=lambda index: self.totals[index] / self.counts[index], default=0)
-
-    def start_episode(self, episode, learn):
-        if learn:
-            if episode <= self.exploration_episodes:
-                self.training_route = (episode - 1) % len(self.routes)
-            else:
-                self.training_route = self._best_route()
-
-    def select(self, state, epsilon, random_source, learn):
-        route = self.training_route if learn else self._best_route()
-        return self.routes[route][self.horizon - state[2]]
+    def observe(self, state, action, reward, next_state, next_action):
+        self.trajectory.append((state, action, self.probabilities(state)[action], reward / 100.0))
 
     def finish_episode(self, reward):
-        if sum(self.counts) < self.exploration_episodes:
-            self.counts[self.training_route] += 1
-            self.totals[self.training_route] += reward
+        samples = []
+        advantage = next_value = 0.0
+        for state, action, old_probability, step_reward in reversed(self.trajectory):
+            value = self.critic.get(self.key(state), 0.0)
+            delta = step_reward + self.gamma * next_value - value
+            advantage = delta + self.gamma * 0.95 * advantage
+            samples.append((state, action, old_probability, advantage, value + advantage))
+            next_value = value
+        self.trajectory.clear()
+
+        for _ in range(4):
+            self.random.shuffle(samples)
+            for state, action, old_probability, advantage, target in samples:
+                probabilities = self.probabilities(state)
+                ratio = probabilities[action] / old_probability
+                if (advantage > 0 and ratio <= 1.2) or (advantage < 0 and ratio >= 0.8):
+                    self._improve(state, action, probabilities, 0.25 * ratio * advantage)
+                key = self.key(state)
+                self.critic[key] += 0.2 * (target - self.critic[key])

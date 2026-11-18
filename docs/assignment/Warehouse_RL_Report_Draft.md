@@ -24,16 +24,15 @@ The episode grid compares up to ten recorded training traces. By default, it sam
 
 ## 5. Part A — Identifying and Selecting Promising Models
 
-The comparison covers value-based, policy-based, and hybrid learning. All navigation learners use the same simulator and reward profile. Q-learning and SARSA use the static map to exclude blocked actions. DQN, REINFORCE, and Actor–Critic can attempt all five actions. The tabular and policy learners index their estimates by position, patrol phase, and mission stage. DQN also receives normalized remaining time.
+The comparison covers value-based, policy-based, and hybrid learning. All navigation learners use the same simulator and reward profile. Q-learning and SARSA use the static map to exclude blocked actions. DQN, REINFORCE, Actor–Critic, and PPO can attempt all five actions. The tabular and policy learners index their estimates by position, patrol phase, and mission stage. DQN also receives normalized remaining time.
 
 - **Value-based** methods include tabular Q-learning, SARSA, and a Deep Q-Network (DQN). Q-learning and DQN bootstrap from the best estimated next action. SARSA bootstraps from the action actually selected. DQN uses experience replay and a periodically copied target network.
 - **Policy-based** REINFORCE updates a softmax policy after each episode using discounted returns and a scalar running baseline.
-- **Hybrid** Actor–Critic uses a softmax actor and a tabular critic. The critic learns to predict state value and supplies a one-step temporal-difference error to update the actor.
-- **Route baseline** Explore-Then-Commit tries the seven-step direct route and two 13-step detours, then commits to the route with the highest observed mean return. Its candidate routes come from the static map, which gives it prior structure unavailable to the navigation learners.
+- **Hybrid** methods use a softmax actor and a tabular critic. Actor–Critic updates the actor at each step using a one-step temporal-difference error. Proximal Policy Optimization (PPO) estimates advantages from each completed episode and reuses its transitions for four training passes, clipping the probability ratio in the policy objective.
 
 ### Three-seed comparison
 
-Each method trained on the one-way delivery mission for 600 episodes per traffic scenario with seeds 42, 43, and 44, the operational reward, and an exposure cost of 2. Paired runs used the same sequence of starting patrol phases. After training, each policy ran frozen on the static map once per seed and on all eight starting phases of the scripted patrol per seed. The replays use greedy action selection or the committed route. The patrol phases were also available during training.
+Each method trained on the one-way delivery mission for 600 episodes per traffic scenario with seeds 42, 43, and 44, the operational reward, and an exposure cost of 2. Paired runs used the same sequence of starting patrol phases. After training, each policy ran frozen on the static map once per seed and on all eight starting phases of the scripted patrol per seed. The replays use greedy action selection. The patrol phases were also available during training.
 
 | Method | Static deliveries | Patrol deliveries | Patrol collisions | Patrol timeouts | Mean patrol return |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -42,9 +41,9 @@ Each method trained on the one-way delivery mission for 600 episodes per traffic
 | DQN | 2/3 | 6/24 | 10 | 8 | −67.36 |
 | REINFORCE | 3/3 | 0/24 | 0 | 24 | −142.28 |
 | Actor–Critic | 3/3 | 24/24 | 0 | 0 | 93.67 |
-| Explore-Then-Commit | 3/3 | 24/24 | 0 | 0 | 96.75 |
+| PPO | 3/3 | 24/24 | 0 | 0 | 94.35 |
 
-Q-learning, SARSA, Actor–Critic, and Explore-Then-Commit completed all 24 patrol replays. Q-learning had the highest mean patrol return and averaged 9.71 steps per delivery. Explore-Then-Commit took 13 steps with zero exposure. During the last 25 training episodes per seed, the stochastic Actor–Critic delivered in 5 of 75 patrol episodes, compared with 24 of 24 under greedy replay. The action filter for the tabular methods and the preset routes for Explore-Then-Commit affect the comparison. The results cover a single layout and patrol pattern. Run settings, operational metrics, and reproduction steps are in the [experiment record](../research/Warehouse_Algorithm_Comparison.md).
+Q-learning, SARSA, Actor–Critic, and PPO completed all 24 patrol replays. Q-learning had the highest mean patrol return and averaged 9.71 steps per delivery. PPO averaged 20.67 steps with zero forklift exposure. During the last 25 training episodes per seed, PPO delivered in 75 of 75 patrol episodes and Actor–Critic delivered in 5 of 75. The static action filter limits blocked moves for Q-learning and SARSA and affects the comparison. The results cover a single layout and patrol pattern. Run settings, operational metrics, and reproduction steps are in the [experiment record](../research/Warehouse_Algorithm_Comparison.md).
 
 ## 6. Part B — Refining the Model
 

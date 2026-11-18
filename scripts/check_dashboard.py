@@ -31,20 +31,23 @@ def check_browser(url, channel):
             try:
                 page.goto(url)
                 expect(page.locator("#status")).to_have_text("Ready", timeout=25000)
-                page.locator("#episodes").fill("25")
-                page.locator("#start").click()
-                expect(page.locator("#status")).to_have_text("Complete")
-                expect(page.locator("#progress")).to_have_attribute("value", "25")
-                expect(page.locator("#chart-figure")).to_be_visible()
-                expect(page.locator("#monitor-range")).to_have_text("Viewing episodes 1–25")
-                expect(page.locator(".monitor-card strong")).to_have_text(["Episode 10", "Episode 20", "Episode 25"])
-                expect(page.locator("#monitor-progress")).to_have_attribute("value", "1")
-                page.get_by_role("button", name=re.compile(r"^Inspect Episode 10,")).click()
-                expect(page.locator("#trace-title")).to_contain_text("Training episode 10")
-                page.locator("#replay").click()
-                expect(page.locator("#policy-evaluation")).to_be_visible()
-                expect(page.locator("#reference")).to_be_visible()
-                expect(page.locator("#error")).to_be_hidden()
+                expect(page.locator('#algorithm optgroup[label="Hybrid"] option[value="ppo"]')).to_have_count(1)
+                for algorithm in ("q_learning", "ppo"):
+                    page.locator("#algorithm").select_option(algorithm)
+                    page.locator("#episodes").fill("25")
+                    page.locator("#start").click()
+                    expect(page.locator("#status")).to_have_text("Complete")
+                    expect(page.locator("#progress")).to_have_attribute("value", "25")
+                    expect(page.locator("#chart-figure")).to_be_visible()
+                    expect(page.locator("#monitor-range")).to_have_text("Viewing episodes 1–25")
+                    expect(page.locator(".monitor-card strong")).to_have_text(["Episode 10", "Episode 20", "Episode 25"])
+                    expect(page.locator("#monitor-progress")).to_have_attribute("value", "1")
+                    page.get_by_role("button", name=re.compile(r"^Inspect Episode 10,")).click()
+                    expect(page.locator("#trace-title")).to_contain_text("Training episode 10")
+                    page.locator("#replay").click()
+                    expect(page.locator("#policy-evaluation")).to_be_visible()
+                    expect(page.locator("#reference")).to_be_visible()
+                    expect(page.locator("#error")).to_be_hidden()
             finally:
                 if errors:
                     raise RuntimeError("\n".join(errors))
@@ -95,7 +98,7 @@ def main():
     options = parser.parse_args()
     check = check_hosted if options.hosted else check_local
     check(options.channel)
-    print("Dashboard smoke passed: page loaded, 25 episodes completed, and policy replay displayed.")
+    print("Dashboard smoke passed: Q-learning and PPO each completed 25 episodes and displayed a policy replay.")
 
 
 if __name__ == "__main__":

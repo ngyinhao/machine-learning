@@ -38,6 +38,19 @@ Refresh these tables if the agent defaults, warehouse, or reward implementation 
 
 The tabular spot-check found 24/24 patrol deliveries for both Q-learning and SARSA after the static move filter was introduced. The full Part A rerun above reproduces those counts and adds the results for the other methods under the same episode budget and reward profile.
 
+### November 18, 2026 PPO comparison
+
+PPO was added as a second hybrid method to compare clipped policy updates with the existing one-step Actor–Critic updates. It samples all five actions from a softmax policy and trains a tabular critic. Both use position, patrol phase, and mission stage. Each complete episode supplies four shuffled training passes over the same transitions. PPO uses the clipped surrogate objective with a ratio threshold of 0.2, generalized advantage estimation with λ = 0.95, γ = 0.98, actor and critic step sizes of 0.25 and 0.2, and rewards divided by 100 during learning. Replay selects greedy actions from the frozen policy.
+
+The run used Python 3.14.6 and the same 600-episode one-way configuration, seeds 42–44, and operational exposure cost of 2 as the main comparison.
+
+| Traffic | Deliveries in final 25 per seed | Replay deliveries | Collisions | Timeouts | Mean return | Mean energy | Mean exposure | Mean delivery steps |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| None | 74/75 | 3/3 | 0 | 0 | 98.25 | 7 | 0 | 7 |
+| Patrol | 75/75 | 24/24 | 0 | 0 | 94.35 | 17.07 | 0 | 20.67 |
+
+PPO completed all eight patrol phases for each seed. Its mean delivery time was 20.67 ticks, with zero exposure across the 24 patrol replays. These observations cover the one-way mission on the fixed warehouse layout. Refresh the PPO rows if the policy update, reward, or simulator changes.
+
 ## Part B tuning record
 
 The one-way comparison records the pre-tuning configurations and outcomes. The following values describe the original tabular settings. The dashboard now uses the round-trip Q-learning settings documented below.
@@ -100,7 +113,7 @@ for initial_q, exposure_cost in ((100, 0.15), (0, 0.15), (100, 2)):
 
 ## Reproduce the runs
 
-Run this from the project root to repeat the comparison. The training and replay rows contain the reward breakdown and operational metrics.
+Run this from the project root to repeat the comparison for the supported methods. Use revision `f05a308` to reproduce the historical Explore-Then-Commit rows. The training and replay rows contain the reward breakdown and operational metrics.
 
 ```python
 from itertools import product
@@ -126,3 +139,4 @@ for algorithm, traffic, seed in product(AGENTS, ("none", "patrol"), (42, 43, 44)
 - Williams (1992). [Simple statistical gradient-following algorithms for connectionist reinforcement learning](https://doi.org/10.1007/BF00992696).
 - Konda and Tsitsiklis (1999). [Actor-Critic Algorithms](https://papers.nips.cc/paper/1999/hash/6449f44a102fde848669bdd9eb6b76fa-Abstract.html).
 - Garivier, Lattimore, and Kaufmann (2016). [On Explore-Then-Commit Strategies](https://papers.nips.cc/paper_files/paper/2016/hash/ef575e8837d065a1683c022d2077d342-Abstract.html).
+- Schulman et al. (2017). [Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347).
