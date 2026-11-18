@@ -24,9 +24,9 @@ The episode grid compares up to ten recorded training traces. By default, it sam
 
 ## 5. Part A — Identifying and Selecting Promising Models
 
-The comparison covers value-based, policy-based, and hybrid learning. All navigation learners use the same simulator and reward profile. Q-learning and SARSA use the static map to exclude blocked actions. DQN, REINFORCE, and Actor–Critic can attempt all five actions. The tabular and policy learners index their estimates by position, patrol phase, and mission stage. DQN also receives normalized remaining time.
+The comparison covers value-based, policy-based, and hybrid learning. All navigation learners use the same simulator and reported reward profile. Q-learning, SARSA, and DQN use the static map to exclude blocked actions. REINFORCE and Actor–Critic can attempt all five actions. The tabular and policy learners index their estimates by position, patrol phase, and mission stage. DQN also receives normalized remaining time.
 
-- **Value-based** methods include tabular Q-learning, SARSA, and a Deep Q-Network (DQN). Q-learning and DQN bootstrap from the best estimated next action. SARSA bootstraps from the action actually selected. DQN uses experience replay and a periodically copied target network.
+- **Value-based** methods include tabular Q-learning, SARSA, and a Deep Q-Network (DQN). Q-learning and DQN bootstrap from the best estimated next action. SARSA bootstraps from the action actually selected. DQN uses experience replay, a periodically copied target network, and training-only potential-based shaping from grid distance to the mission goals. The shaping uses the dock and home coordinates. The reported return uses the original reward profile.
 - **Policy-based** REINFORCE updates a softmax policy after each episode using discounted returns and a scalar running baseline.
 - **Hybrid** Actor–Critic uses a softmax actor and a tabular critic. The critic learns to predict state value and supplies a one-step temporal-difference error to update the actor.
 - **Route baseline** Explore-Then-Commit tries the seven-step direct route and two 13-step detours, then commits to the route with the highest observed mean return. Its candidate routes come from the static map, which gives it prior structure unavailable to the navigation learners.
@@ -39,12 +39,12 @@ Each method trained on the one-way delivery mission for 600 episodes per traffic
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Q-learning | 3/3 | 24/24 | 0 | 0 | 97.13 |
 | SARSA | 3/3 | 24/24 | 0 | 0 | 95.76 |
-| DQN | 2/3 | 6/24 | 10 | 8 | −67.36 |
+| DQN | 3/3 | 23/24 | 1 | 0 | 83.97 |
 | REINFORCE | 3/3 | 0/24 | 0 | 24 | −142.28 |
 | Actor–Critic | 3/3 | 24/24 | 0 | 0 | 93.67 |
 | Explore-Then-Commit | 3/3 | 24/24 | 0 | 0 | 96.75 |
 
-Q-learning, SARSA, Actor–Critic, and Explore-Then-Commit completed all 24 patrol replays. Q-learning had the highest mean patrol return and averaged 9.71 steps per delivery. Explore-Then-Commit took 13 steps with zero exposure. During the last 25 training episodes per seed, the stochastic Actor–Critic delivered in 5 of 75 patrol episodes, compared with 24 of 24 under greedy replay. The action filter for the tabular methods and the preset routes for Explore-Then-Commit affect the comparison. The results cover a single layout and patrol pattern. Run settings, operational metrics, and reproduction steps are in the [experiment record](../research/Warehouse_Algorithm_Comparison.md).
+Q-learning, SARSA, Actor–Critic, and Explore-Then-Commit completed all 24 patrol replays. Q-learning had the highest mean patrol return and averaged 9.71 steps per delivery. Explore-Then-Commit took 13 steps with zero exposure. The earlier unshaped DQN completed 6 of 24 patrol replays. With shaping and the static action filter it completed 23 of 24, averaging 16.48 ticks per successful delivery. During the last 25 training episodes per seed, the stochastic Actor–Critic delivered in 5 of 75 patrol episodes, compared with 24 of 24 under greedy replay. The action filter, shaping signal, and preset routes give different learners different prior information. The results cover a single layout and patrol pattern. Run settings, operational metrics, and reproduction steps are in the [experiment record](../research/Warehouse_Algorithm_Comparison.md).
 
 ## 6. Part B — Refining the Model
 
@@ -54,4 +54,6 @@ Staged sweeps selected Q-learning with 1,500 episodes, a learning rate of 1, a d
 
 The learned policy completed all 24 validation replays at the minimum time. Across five independent verification training seeds and all eight starting phases, it completed **40/40 round trips without a collision** and matched the fastest route in **37/40**. Completion averaged 14.50 ticks, or 0.125 extra ticks above the phase-specific minimum. A higher exposure cost of 2 reduced mean exposure from 3.40 to 2.50 ticks and increased mean travel time to 14.70 ticks. These results cover one fixed warehouse and patrol pattern. The [experiment record](../research/Warehouse_Algorithm_Comparison.md#home-base-round-trip) gives the configurations, selection rule, and reproduction steps.
 
-The broader reward study will hold the learner configuration fixed across reward profiles and compare completion, collisions, timeouts, exposure, travel time, and energy use on shared scenarios. Fresh layouts and patrol patterns will test generalization. Battery limits, soft deadlines, and potential-based shaping are planned extensions.
+With the same mission, training budget, and operational exposure cost, DQN completed 23 of 24 greedy round-trip replays across seeds 42–44. One replay collided and one matched the minimum travel time. The default seed 42 completed all eight phases. The displayed phase-6 replay delivered at tick 19 and returned at tick 27.
+
+The broader reward study will hold the learner configuration fixed across reward profiles and compare completion, collisions, timeouts, exposure, travel time, and energy use on shared scenarios. Fresh layouts and patrol patterns will test generalization. Battery limits and soft deadlines are planned extensions.

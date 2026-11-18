@@ -202,11 +202,21 @@ def route_options(round_trip):
     return routes
 
 
+def dqn_potential(state, round_trip):
+    position, _, _, returning = state
+    goal = START if returning else DOCK
+    distance = sum(abs(source - target) for source, target in zip(position, goal))
+    if round_trip and not returning:
+        distance += sum(abs(dock - home) for dock, home in zip(DOCK, START))
+    return -10 * distance
+
+
 AGENTS = {
     "q_learning": TabularTD,
     "sarsa": TabularTD,
     "dqn": lambda episodes, seed, round_trip: DQN(
-        len(LAYOUT[0]), len(LAYOUT), len(PATROL), HORIZON, len(ACTIONS), GAMMA, seed
+        len(LAYOUT[0]), len(LAYOUT), len(PATROL), HORIZON, len(ACTIONS), GAMMA, seed,
+        VALID_ACTIONS, lambda state: dqn_potential(state, round_trip),
     ),
     "reinforce": lambda episodes, seed, round_trip: Reinforce(len(ACTIONS), GAMMA),
     "actor_critic": lambda episodes, seed, round_trip: ActorCritic(len(ACTIONS), GAMMA),

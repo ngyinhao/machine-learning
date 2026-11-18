@@ -2,14 +2,14 @@
 
 ## November 18, 2026 experiment
 
-This comparison adds neural Q-learning, direct policy gradients, and Actor–Critic to the tabular baselines. Explore-Then-Commit measures what a policy can gain from map-derived route candidates. The experiment holds the map, transition logic, and reward profile fixed. The tabular agents mask blocked moves using the static map. DQN and the two policy learners consider all five actions.
+This comparison adds neural Q-learning, direct policy gradients, and Actor–Critic to the tabular baselines. Explore-Then-Commit measures what a policy can gain from map-derived route candidates. The experiment holds the map, transition logic, and reported reward profile fixed. The table includes a DQN rerun with training-only shaping. The tabular agents and the updated DQN mask blocked moves using the static map. The two policy learners consider all five actions.
 
 ## Configuration
 
 - Train each method on the one-way delivery mission for 600 episodes with each of seeds 42, 43, and 44 in both traffic scenarios. Use the operational reward with an exposure cost of 2. The comparison used Python 3.14.6. Each seed generates the same phase sequence across methods. Episode length varies, so the training budgets match in episodes and can differ in transition count.
 - Evaluate the frozen policy once per seed on the static map and once per seed on each of the eight scripted patrol starting phases. Replay chooses the largest Q-value or policy preference, with seeded tie-breaking. Explore-Then-Commit follows its best route.
 - Q-learning and SARSA use a step size of 0.25. Q-learning, SARSA, and DQN use ε-greedy actions with ε starting at 1, declining linearly, and stopping at 0.05. The navigation learners use a discount factor of 0.98. DQN, REINFORCE, and Actor–Critic divide rewards by 100 internally. The reported metrics use the original reward scale.
-- DQN has two 16-unit leaky ReLU hidden layers and a linear output for each action. It uses a Huber loss and SGD with a step size of 0.015. It stores up to 5,000 transitions, trains after a warm-up of 128 transitions with four sampled SGD updates every four steps, and copies the target network every 250 transitions.
+- DQN has two 16-unit leaky ReLU hidden layers and a linear output for each action. It uses a Huber loss and SGD with a step size of 0.015. It stores up to 5,000 transitions, trains after a warm-up of 128 transitions with four sampled SGD updates every four steps, and copies the target network every 250 transitions. The updated DQN filters wall moves during action selection and bootstrapping and uses the potential described in the round-trip record.
 - REINFORCE and Actor–Critic use softmax policies indexed by position, patrol phase, and mission stage. REINFORCE uses a policy step size of 0.12 and updates its running scalar baseline with a step size of 0.05. Actor–Critic uses step sizes of 0.25 for the actor and 0.2 for the tabular critic.
 - Explore-Then-Commit cycles through the direct, upper-aisle, and lower-aisle routes for 50 episodes each. It picks the route with the highest mean undiscounted episode return and follows it for the remaining 450 episodes.
 
@@ -19,18 +19,18 @@ This comparison adds neural Q-learning, direct policy gradients, and Actor–Cri
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | Q-learning | None | 75/75 | 3/3 | 0 | 0 | 98.25 | 7 | 0 | 7 |
 | SARSA | None | 75/75 | 3/3 | 0 | 0 | 98.25 | 7 | 0 | 7 |
-| DQN | None | 71/75 | 2/3 | 0 | 1 | −8.85 | 15.60 | 0 | 13 |
+| DQN | None | 73/75 | 3/3 | 0 | 0 | 98.01 | 7.73 | 0 | 8 |
 | REINFORCE | None | 75/75 | 3/3 | 0 | 0 | 98.25 | 7 | 0 | 7 |
 | Actor–Critic | None | 75/75 | 3/3 | 0 | 0 | 98.25 | 7 | 0 | 7 |
 | Explore-Then-Commit | None | 75/75 | 3/3 | 0 | 0 | 98.25 | 7 | 0 | 7 |
 | Q-learning | Patrol | 74/75 | 24/24 | 0 | 0 | 97.13 | 8.47 | 0.25 | 9.71 |
 | SARSA | Patrol | 75/75 | 24/24 | 0 | 0 | 95.76 | 15.08 | 0 | 17.42 |
-| DQN | Patrol | 26/75 | 6/24 | 10 | 8 | −67.36 | 28.50 | 1.08 | 7 |
+| DQN | Patrol | 57/75 | 23/24 | 1 | 0 | 83.97 | 13.43 | 1.92 | 16.48 |
 | REINFORCE | Patrol | 6/75 | 0/24 | 0 | 24 | −142.28 | 63.07 | 0 | — |
 | Actor–Critic | Patrol | 5/75 | 24/24 | 0 | 0 | 93.67 | 16.51 | 0.38 | 19.21 |
 | Explore-Then-Commit | Patrol | 75/75 | 24/24 | 0 | 0 | 96.75 | 13 | 0 | 13 |
 
-Return, energy, and exposure include every replay outcome. Delivery steps include successful replays only. Patrol deliveries by seed were `[6, 0, 0]` for DQN and `[0, 0, 0]` for REINFORCE. Each of the four other methods delivered in all eight patrol phases for each seed.
+Return, energy, and exposure include every replay outcome. Delivery steps include successful replays only. Patrol deliveries by seed were `[8, 7, 8]` for the updated DQN and `[0, 0, 0]` for REINFORCE. The original DQN delivered in 2 of 3 static replays and 6 of 24 patrol replays, with 10 patrol collisions and 8 patrol timeouts. Each of the four other methods delivered in all eight patrol phases for each seed.
 
 Refresh these tables if the agent defaults, warehouse, or reward implementation changes. Generalization claims require held-out layouts or traffic patterns. For a follow-up on policy reliability, evaluate stochastic policies alongside greedy replay and compare learning curves at equal transition counts.
 
@@ -90,6 +90,20 @@ for initial_q, exposure_cost in ((100, 0.15), (0, 0.15), (100, 2)):
     gaps = [row["steps"] - row["optimal_steps"] for row in completed]
     print(initial_q, exposure_cost, len(completed), gaps.count(0), mean(gaps))
 ```
+
+### DQN round-trip replay
+
+The original DQN recorded zero round-trip completions in 1,500 episodes under the dashboard defaults for seed 42. All eight frozen replays timed out before a dock delivery. Filtering wall moves or removing the time input alone still yielded zero completed replays. The updated DQN combines a static wall-action filter with a training reward adjustment of `γΦ(next state) − Φ(state)` before the usual normalization by 100. The potential `Φ` is −10 times the remaining Manhattan distance through the mission's goals and is zero at every terminal state. The wait action remains available and the DQN learns forklift timing from experience. The simulator uses the original reward components in traces, CSV, and evaluation.
+
+The rerun used 1,500 round-trip episodes, seeds 42–44, the forklift patrol, the operational reward with exposure cost 0.15, γ = 0.98, ε floor = 0.05, and decay fraction = 0.80. Frozen greedy replays cover all eight starting phases for each seed. Across the 24 replays, one matched the phase-specific minimum time. The representative seed-42 replay delivered at tick 19 and returned at tick 27 in phase 6, where the minimum is 15 ticks.
+
+| Seed | Completed round trips | Collisions | Timeouts | Mean ticks on completion |
+| --- | ---: | ---: | ---: | ---: |
+| 42 | 8/8 | 0 | 0 | 30.88 |
+| 43 | 7/8 | 1 | 0 | 16.29 |
+| 44 | 8/8 | 0 | 0 | 33.75 |
+
+The one-way DQN rerun used the Part A configuration and supplied the updated DQN rows above. Repeat the round-trip check with `python -m unittest discover -s tests` for the default seed. These results support the current layout and patrol only. Refresh them after changing the DQN, simulator, or reward defaults.
 
 ### What to record for each tuning batch
 
