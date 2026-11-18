@@ -20,7 +20,7 @@ The dashboard starts a training run and animates recorded robot and forklift pos
 
 The demonstration is hosted privately on ChatGPT Sites. A browser worker runs the Python simulator and agents, with one training session per tab. Closing or reloading the tab clears that session, so users export the CSV to retain the results.
 
-The episode grid compares up to ten recorded training traces. By default, it samples every tenth episode and groups traces in 100-episode blocks. The next block’s training progress controls playback of the preceding block on a shared timeline. Each trace remains available for per-step inspection. This display uses traces from training episodes, including exploratory actions.
+The episode grid compares up to ten recorded training traces. By default, it samples every tenth episode and groups traces in 100-episode blocks. The latest recorded block plays on a shared timeline and repeats while the next block is still training. The final block plays once. Each trace remains available for per-step inspection. This display uses traces from training episodes, including exploratory actions.
 
 ## 5. Part A — Identifying and Selecting Promising Models
 

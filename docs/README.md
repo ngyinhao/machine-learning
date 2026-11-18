@@ -41,7 +41,7 @@ python scripts/check_dashboard.py
 python scripts/check_dashboard.py --hosted
 ```
 
-Each check starts a separate server on a free port, opens the dashboard, trains for 25 episodes, and replays the resulting policy. It shuts down its server when finished. On Windows with Microsoft Edge installed, add `--channel msedge` to both checks and skip the Chromium download.
+Each check starts a separate server on a free port, trains for 25 episodes, and replays the resulting policy. It also checks that the episode grid keeps playing during a delayed DQN batch. It shuts down its server when finished. On Windows with Microsoft Edge installed, add `--channel msedge` to both checks and skip the Chromium download.
 
 Push feature branches and open pull requests to `main`. GitHub Actions runs the `Dashboard smoke` job on those pull requests. The branch protection rule requires that check to pass on an up-to-date branch before merging, including for repository admins.
 
@@ -50,7 +50,7 @@ Push feature branches and open pull requests to `main`. GitHub Actions runs the 
 1. Play the shortest-path preview to inspect the static warehouse before training.
 2. Choose an algorithm, mission, traffic scenario, and reward profile. The default configuration trains Q-learning to deliver to the dock and return home under the forklift patrol. Start training to see sampled episodes and the learning curve.
 3. Pause training to inspect a checkpoint. Play or scrub the route trace to see per-step reward terms. **Show latest** loads the most recent recorded training trace. **Replay trained policy** evaluates one frozen-policy episode for each forklift starting phase, or one episode on the static floor, and plays a representative trace. **Play fastest route** animates the minimum-time collision-free reference for the replayed phase.
-4. Open **View episode grid** to watch up to ten recorded training episodes together. By default, it samples every 10 episodes and shows a new group every 100. Playback follows progress through the next training group. After training ends, the final group plays over roughly the time it took to train. Use **Pause grid** to hold a view, or select a map to inspect and scrub its original trace. **Grid settings** apply when starting a new run.
+4. Open **View episode grid** to watch up to ten recorded training episodes together. By default, it samples every 10 episodes and shows a new group every 100. The grid plays the latest recorded group over roughly the time it took to train and repeats it if the next group is still training. The final group plays once. Use **Pause grid** to hold a view, or select a map to inspect and scrub its original trace. **Grid settings** apply when starting a new run.
 5. Download the training CSV to compare runs. It includes the run settings, per-episode outcomes and metrics, and reward totals by component.
 
 The completion rate and mean return show the latest 25 training episodes, or all available episodes if fewer have completed. Episode return is the undiscounted sum of recorded rewards. The replay comparison reports how many frozen-policy episodes completed and matched the minimum time. The animated replay uses a fixed scenario phase derived from the seed.
