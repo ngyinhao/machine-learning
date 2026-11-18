@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Watch a reinforcement learning agent train on a simulated warehouse floor.">
+  <title>Warehouse RL Lab</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/episode-grid.js" defer></script>
+  <script src="/dashboard.js" defer></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="shell topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span> Warehouse RL Lab</div>
+      <span class="local"><span></span> Local simulation</span>
+    </div>
+  </header>
+  <main class="shell workspace">
+    <div class="intro">
+      <div>
+        <p class="section-label">Reinforcement learning / Navigation</p>
+        <h1>Train a delivery robot</h1>
+        <p>Follow its routes and see how reward weights change its decisions.</p>
+      </div>
+      <button id="export" type="button" disabled><span aria-hidden="true">↓</span> Download training CSV</button>
+    </div>
+    <dl class="stats" aria-label="Training summary">
+      <div><dt>Episodes</dt><dd id="episode-stat">0 <small>/ 1,500</small></dd></div>
+      <div><dt>Completion rate <small>last 25</small></dt><dd id="success-stat">—</dd></div>
+      <div><dt>Mean return <small>last 25</small></dt><dd id="reward-stat">—</dd></div>
+      <div><dt>Exploration ε</dt><dd id="epsilon-stat">—</dd></div>
+    </dl>
+    <div class="columns">
+      <section class="panel run-panel" aria-labelledby="run-heading">
+        <div class="panel-heading"><h2 id="run-heading" tabindex="-1">Training setup</h2><span id="status" class="status" role="status">Loading</span></div>
+        <form id="setup">
+          <fieldset id="settings" disabled>
+            <legend class="sr-only">Training settings</legend>
+            <label>Algorithm<select id="algorithm">
+              <optgroup label="Value-based">
+                <option value="q_learning">Q-learning</option>
+                <option value="sarsa">SARSA</option>
+                <option value="dqn">Deep Q-network (DQN)</option>
+              </optgroup>
+              <optgroup label="Policy-based">
+                <option value="reinforce">REINFORCE</option>
+              </optgroup>
+              <optgroup label="Hybrid">
+                <option value="actor_critic">Actor–Critic</option>
+              </optgroup>
+              <optgroup label="Route baseline">
+                <option value="etc">Explore-Then-Commit</option>
+              </optgroup>
+            </select></label>
+            <label>Traffic<select id="traffic"><option value="none">No traffic</option><option value="patrol" selected>Forklift patrol</option></select></label>
+            <label>Mission<select id="mission"><option value="return">Deliver and return home</option><option value="deliver">Deliver only</option></select></label>
+            <label>Episodes<input id="episodes" type="number" min="25" max="3000" step="1" value="1500" required></label>
+            <label>Random seed<input id="seed" type="number" min="0" max="4294967295" step="1" value="42" required></label>
+            <label>Reward profile<select id="profile"><option value="balanced">Operational</option><option value="efficiency">Time + energy</option><option value="sparse">Delivery + failure</option></select></label>
+            <label>Exposure cost / tick<input id="exposure" type="number" min="0" max="20" step="0.05" value="0.15" required></label>
+          </fieldset>
+          <p id="profile-note" class="hint">Scores delivery, time, energy, forklift clearance, blocked moves, and failure.</p>
+          <details id="advanced-settings" class="advanced-settings" hidden>
+            <summary>Advanced hyperparameters</summary>
+            <p id="hyperparameter-note" class="hint" aria-live="polite"></p>
+            <fieldset id="hyperparameter-settings" disabled>
+              <legend class="sr-only">Algorithm hyperparameters</legend>
+              <div id="hyperparameter-fields" class="hyperparameter-fields"></div>
+              <button id="reset-hyperparameters" type="button">Reset to defaults</button>
+            </fieldset>
+          </details>
+          <p id="paused-note" class="hint" hidden>Changes apply when you start a new run. Resuming uses the original settings.</p>
+          <div class="run-actions">
+            <button class="primary" id="start" type="submit" disabled>Start training</button>
+            <button id="pause" type="button" disabled>Pause training</button>
+            <button id="replay" type="button" disabled>Replay trained policy</button>
+            <button id="reference" type="button" hidden>Play fastest route</button>
+          </div>
+          <p id="policy-evaluation" class="hint" role="status" hidden></p>
+          <a class="monitor-link" href="#episode-grid">View episode grid ↓</a>
+        </form>
+        <p id="error" class="error" role="alert" hidden></p>
+      </section>
+      <section class="panel floor-panel" aria-labelledby="floor-heading">
+        <div class="panel-heading">
+          <div><h2 id="floor-heading" tabindex="-1">Warehouse floor</h2><p id="trace-title">Shortest-path preview · no traffic</p></div>
+          <span class="tick">Tick <span id="tick">00</span></span>
+        </div>
+        <div class="playback">
+          <button id="play" type="button" disabled>Play trace</button>
+          <label class="scrubber"><span class="sr-only">Trace tick</span><input id="scrub" type="range" min="0" max="0" value="0" disabled></label>
+          <span id="trace-limit">0 / 0</span>
+          <button id="follow" type="button" disabled>Show latest</button>
+        </div>
+        <div class="floor">
+          <canvas id="map" width="500" height="500" role="img" aria-label="Warehouse map with robot, shelves, forklift and delivery dock."></canvas>
+          <div class="floor-legend" aria-label="Map legend">
+            <span><i class="robot-key"></i> Robot</span><span><i class="route-key"></i> Route</span>
+            <span><i class="forklift-key"></i> Forklift</span>
+            <span><i class="dock-key"></i> Dock</span><span><i class="base-key"></i> Home base</span><span><i class="shelf-key"></i> Shelf</span>
+          </div>
+        </div>
+        <div class="event-readout">
+          <div><h3>Current transition</h3><p id="event">Run a training session or play the route preview.</p></div>
+          <strong id="step-reward">—</strong>
+        </div>
+        <dl id="reward-terms" class="reward-terms" aria-label="Current transition reward breakdown">
+          <div><dt>Completion</dt><dd data-term="Delivery">—</dd></div>
+          <div><dt>Time</dt><dd data-term="Time">—</dd></div>
+          <div><dt>Energy</dt><dd data-term="Energy">—</dd></div>
+          <div><dt>Exposure</dt><dd data-term="Exposure">—</dd></div>
+          <div><dt>Blocked</dt><dd data-term="Blocked">—</dd></div>
+          <div><dt>Failure</dt><dd data-term="Failure">—</dd></div>
+        </dl>
+      </section>
+      <section class="panel curve-panel" aria-labelledby="curve-heading">
+        <div class="panel-heading">
+          <div><h2 id="curve-heading">Learning curve</h2><p>Episode return is the total reward from one training episode.</p></div>
+          <span id="curve-status" class="status">Loading</span>
+        </div>
+        <div id="chart-empty" class="chart-empty">
+          <div role="status">
+            <h3 id="chart-empty-heading">Loading the warehouse</h3>
+            <p id="chart-empty-note">The chart will be available when training setup is ready.</p>
+          </div>
+          <a id="chart-setup-link" href="#run-heading" hidden>Go to training setup <span aria-hidden="true">↑</span></a>
+        </div>
+        <figure id="chart-figure" class="chart-figure" hidden>
+          <canvas id="chart" width="420" height="185" role="img" aria-label="Episode returns by training episode" aria-describedby="chart-caption"></canvas>
+          <figcaption id="chart-caption">
+            <ul class="chart-key" aria-label="Chart legend">
+              <li class="chart-key-dot">Individual episode</li>
+              <li class="chart-key-trend">Average of up to 25 recent episodes</li>
+              <li class="chart-key-zero">Zero return</li>
+            </ul>
+            <p>Higher dots show better scores. Below zero, penalties outweigh rewards.</p>
+          </figcaption>
+        </figure>
+        <div class="chart-footer">
+          <div><span id="progress-heading">Training progress</span><span id="progress-label">0 of 1,500 episodes</span></div>
+          <progress id="progress" max="1500" value="0" aria-labelledby="progress-heading" aria-describedby="progress-label"></progress>
+        </div>
+      </section>
+      <section class="panel episode-panel" aria-labelledby="episode-heading">
+          <div class="panel-heading"><h2 id="episode-heading">Latest training episode</h2><span id="outcome" class="status">—</span></div>
+          <dl class="episode-details">
+            <div><dt>Steps</dt><dd id="steps">—</dd></div>
+            <div><dt>Energy used</dt><dd id="energy">—</dd></div>
+            <div><dt>Exposure ticks</dt><dd id="exposures">—</dd></div>
+          </dl>
+      </section>
+    </div>
+    <section id="episode-grid" class="panel episode-monitor" aria-labelledby="monitor-heading">
+      <div class="panel-heading monitor-heading">
+        <div><h2 id="monitor-heading">Episode grid</h2><p id="monitor-range">Recorded episodes play together as training progresses.</p></div>
+        <button id="monitor-play" type="button" disabled>Pause grid</button>
+      </div>
+      <details class="monitor-settings">
+        <summary>Grid settings</summary>
+        <fieldset id="monitor-settings" aria-describedby="monitor-settings-note">
+          <legend class="sr-only">Grid settings for the next run</legend>
+          <label>Episodes per group<select id="monitor-batch">
+            <option value="50">50</option>
+            <option value="100" selected>100</option>
+            <option value="200">200</option>
+            <option value="500">500</option>
+          </select></label>
+          <label>Sample every<select id="monitor-interval">
+            <option value="10" selected>10 episodes</option>
+            <option value="20">20 episodes</option>
+            <option value="50">50 episodes</option>
+            <option value="100">100 episodes</option>
+          </select></label>
+          <label>Maximum maps<select id="monitor-limit">
+            <option value="1">1</option>
+            <option value="4">4</option>
+            <option value="6">6</option>
+            <option value="10" selected>10</option>
+          </select></label>
+        </fieldset>
+        <p id="monitor-settings-note">Settings apply when you start a new run.</p>
+      </details>
+      <div id="monitor-cards" class="monitor-cards" hidden></div>
+      <div class="monitor-footer">
+        <span id="monitor-status">Waiting for training</span>
+        <progress id="monitor-progress" max="1" value="0" aria-label="Grid playback progress"></progress>
+      </div>
+    </section>
+    <template id="monitor-card">
+      <button class="monitor-card" type="button">
+        <strong></strong>
+        <canvas width="250" height="250" aria-hidden="true"></canvas>
+        <span></span>
+      </button>
+    </template>
+    <footer>10 × 10 warehouse · One parcel · Four directions + wait</footer>
+  </main>
+</body>
+</html>

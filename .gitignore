@@ -1,0 +1,7 @@
+__pycache__/
+.venv/
+/.agent-workflow/
+/sites/warehouse-rl-lab/
+/docs/assignment/Assignment specification (v1).md
+/docs/assignment/BMDS2114_Machine_Learning_Report_Template.docx
+/docs/assignment/Evaluation.txt

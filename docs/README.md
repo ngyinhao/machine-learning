@@ -1,0 +1,74 @@
+# Warehouse RL Lab
+
+A Python application for training warehouse delivery policies and inspecting how rewards guide their behaviour.
+
+## Documentation
+
+- **Assignment and report** — [report draft](assignment/Warehouse_RL_Report_Draft.md). Refer to the course-provided assignment specification, evaluation criteria, and Word template for submission requirements.
+- **Product and dashboard** — [product brief](PRODUCT.md) and [dashboard design](DESIGN.md).
+- **Research and experiments** — [project ideas](research/Reinforcement_Learning_Project_Ideas.md), [warehouse environment and experiment plan](research/Warehouse_Environment_Design.md), [reward-design research](research/Warehouse_Reward_Design_Research.md), [algorithm comparison](research/Warehouse_Algorithm_Comparison.md), and [Part B tuning record](research/Warehouse_Algorithm_Comparison.md#part-b-tuning-record).
+- **Dashboard verification** — [episode grid timing check](research/Episode_Grid_Timing.md).
+
+## Hosted dashboard
+
+Open the private [Warehouse RL Lab on ChatGPT Sites](https://warehouse-rl-lab.teamngnew-6178.chatgpt.site) and sign in with the owner's ChatGPT account. The same Python training engine runs in a browser worker. Each tab has its own training run. Download the CSV before closing or reloading the tab.
+
+Run `python scripts/build_hosted_dashboard.py` to build the assets into `sites/warehouse-rl-lab/dist`. The hosted URL serves the published version until a new version is deployed.
+
+## Run a local preview
+
+From the project root, run `python app.py` and open `http://127.0.0.1:8765` in a browser. Python 3.10 or newer is required. The dashboard and agents use the Python standard library and browser-native graphics, so there are no packages to install.
+
+The server loads the dashboard files at startup. After updating the checkout, save any training results you need, stop that checkout’s server with `Ctrl+C`, and start it again. If you don’t know which process owns the port, use `python app.py --port 0` and open the free address it prints.
+
+## Worktrees and merges
+
+Use the published Site for the demo. Start each task from the shared `main` branch in its own checkout. Run these commands from the Git repository.
+
+```sh
+git fetch origin
+git worktree add -b feature/dashboard-change ../machine-learning-dashboard-change origin/main
+cd ../machine-learning-dashboard-change
+python app.py --port 0
+```
+
+Use the printed address for that worktree. Each process has its own training state. To run the same browser check as CI from the worktree, run the following commands in your Python environment:
+
+```sh
+python -m pip install -r scripts/dashboard-check-requirements.txt
+python -m playwright install chromium
+python scripts/check_dashboard.py
+python scripts/check_dashboard.py --hosted
+```
+
+Each check starts a separate server on a free port, opens the dashboard, trains for 25 episodes, and replays the resulting policy. It shuts down its server when finished. On Windows with Microsoft Edge installed, add `--channel msedge` to both checks and skip the Chromium download.
+
+Push feature branches and open pull requests to `main`. GitHub Actions runs the `Dashboard smoke` job on those pull requests. The branch protection rule requires that check to pass on an up-to-date branch before merging, including for repository admins.
+
+## Watch a training run
+
+1. Play the shortest-path preview to inspect the static warehouse before training.
+2. Choose an algorithm, mission, traffic scenario, and reward profile. The default configuration trains Q-learning to deliver to the dock and return home under the forklift patrol. Start training to see sampled episodes and the learning curve.
+3. Pause training to inspect a checkpoint. Play or scrub the route trace to see per-step reward terms. **Show latest** loads the most recent recorded training trace. **Replay trained policy** evaluates one frozen-policy episode for each forklift starting phase, or one episode on the static floor, and plays a representative trace. **Play fastest route** animates the minimum-time collision-free reference for the replayed phase.
+4. Open **View episode grid** to watch up to ten recorded training episodes together. By default, it samples every 10 episodes and shows a new group every 100. Playback follows progress through the next training group. After training ends, the final group plays over roughly the time it took to train. Use **Pause grid** to hold a view, or select a map to inspect and scrub its original trace. **Grid settings** apply when starting a new run.
+5. Download the training CSV to compare runs. It includes the run settings, per-episode outcomes and metrics, and reward totals by component.
+
+The completion rate and mean return show the latest 25 training episodes, or all available episodes if fewer have completed. Episode return is the undiscounted sum of recorded rewards. The replay comparison reports how many frozen-policy episodes completed and matched the minimum time. The animated replay uses a fixed scenario phase derived from the seed.
+
+## Training methods
+
+- **Value-based** learners include tabular Q-learning, SARSA, and a Deep Q-Network (DQN). All three use the displayed ε-greedy exploration schedule.
+- **Policy-based** REINFORCE learns a probability distribution over actions from completed episodes.
+- **Hybrid** Actor–Critic learns a policy and a value estimate together. Like REINFORCE, it samples from the learned action probabilities during training.
+- **Explore-Then-Commit** compares three preset routes by observed mean return and then follows the best one for the rest of training. Its exploration is over routes. The dashboard shows `N/A` and the CSV leaves ε blank for methods without ε-greedy exploration.
+
+## Warehouse simulator
+
+- A fixed 10 × 10 grid, an automatic delivery dock, an optional return leg to the starting cell, a 100-tick task horizon, and four movement directions plus wait.
+- An optional scripted forklift with a seed-controlled starting phase. Same-cell and swap collisions end the episode. Adjacent noncollision positions count as exposure. The scenario sequence uses a dedicated random stream so paired runs with the same seed see the same starting phases.
+- Delivery/failure, efficiency, and operational reward profiles. The operational profile exposes the per-tick forklift exposure penalty.
+- Synthetic movement and idle energy costs. Battery depletion, soft deadlines, potential-based shaping, and evaluation on different layouts are subsequent milestones.
+
+The local dashboard keeps one active training run in server memory. Download the CSV before replacing that run or shutting down the server.
+
+`warehouse.py` owns transitions, reward calculation, and episode execution. `agents.py` implements the training methods. `dashboard_api.py` manages training sessions for both the local and hosted dashboards. The `web` folder contains the interactive floor plan and charts.
