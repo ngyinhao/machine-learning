@@ -13,6 +13,63 @@ from playwright.sync_api import expect, sync_playwright
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
+def check_grid_playback(page):
+    page.clock.install()
+    page.locator("#algorithm").select_option("dqn")
+    page.locator("#episodes").fill("65")
+    page.locator(".monitor-settings summary").click()
+    page.locator("#monitor-batch").select_option("50")
+    page.evaluate("""
+        () => {
+            const send = window.request;
+            window.request = async (path, body) => {
+                if (path === "advance" && body.cursor === 50) {
+                    await new Promise(resolve => { window.releaseTraining = resolve; });
+                }
+                return send(path, body);
+            };
+        }
+    """)
+    page.locator("#start").click()
+    page.locator("#monitor-progress").scroll_into_view_if_needed()
+    page.wait_for_function("typeof window.releaseTraining === 'function'", timeout=30000)
+    progress = page.locator("#monitor-progress")
+    duration = page.evaluate("Math.ceil(episodeGrid.group.duration)")
+    page.clock.fast_forward(duration + 250)
+    page.clock.run_for(64)
+    before = progress.evaluate("element => element.value")
+    page.clock.run_for(80)
+    after = progress.evaluate("element => element.value")
+    assert 0 < before < after < 1, f"Grid stalled during a delayed DQN batch: {before:.3f} → {after:.3f}"
+    expect(page.locator("#monitor-status")).to_contain_text("Trained 50 of 65 episodes")
+
+    control = page.locator("#monitor-play")
+    control.click()
+    expect(control).to_have_text("Follow training")
+    grid_paused = progress.get_attribute("value")
+    page.clock.run_for(128)
+    expect(progress).to_have_attribute("value", grid_paused)
+    control.click()
+    expect(control).to_have_text("Pause grid")
+
+    training_control = page.locator("#pause")
+    training_control.click()
+    progress.scroll_into_view_if_needed()
+    expect(page.locator("#monitor-status")).to_contain_text("Training paused")
+    training_paused = progress.get_attribute("value")
+    page.evaluate("window.releaseTraining()")
+    expect(page.locator("#monitor-status")).to_have_text("Trained 60 of 65 episodes · Training paused")
+    page.clock.run_for(128)
+    expect(progress).to_have_attribute("value", training_paused)
+    training_control.click()
+    progress.scroll_into_view_if_needed()
+
+    expect(page.locator("#status")).to_have_text("Complete", timeout=10000)
+    expect(page.locator("#monitor-range")).to_have_text("Viewing episodes 51–65")
+    expect(progress).to_have_attribute("value", "1", timeout=10000)
+    expect(control).to_have_text("Replay group")
+
+
 def check_browser(url, channel):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel=channel)
@@ -31,20 +88,25 @@ def check_browser(url, channel):
             try:
                 page.goto(url)
                 expect(page.locator("#status")).to_have_text("Ready", timeout=25000)
-                page.locator("#episodes").fill("25")
-                page.locator("#start").click()
-                expect(page.locator("#status")).to_have_text("Complete")
-                expect(page.locator("#progress")).to_have_attribute("value", "25")
-                expect(page.locator("#chart-figure")).to_be_visible()
-                expect(page.locator("#monitor-range")).to_have_text("Viewing episodes 1–25")
-                expect(page.locator(".monitor-card strong")).to_have_text(["Episode 10", "Episode 20", "Episode 25"])
-                expect(page.locator("#monitor-progress")).to_have_attribute("value", "1")
-                page.get_by_role("button", name=re.compile(r"^Inspect Episode 10,")).click()
-                expect(page.locator("#trace-title")).to_contain_text("Training episode 10")
-                page.locator("#replay").click()
-                expect(page.locator("#policy-evaluation")).to_be_visible()
-                expect(page.locator("#reference")).to_be_visible()
-                expect(page.locator("#error")).to_be_hidden()
+                expect(page.locator('#algorithm optgroup[label="Hybrid"] option[value="ppo"]')).to_have_count(1)
+                for algorithm in ("q_learning", "ppo"):
+                    page.locator("#algorithm").select_option(algorithm)
+                    page.locator("#episodes").fill("25")
+                    page.locator("#start").click()
+                    expect(page.locator("#status")).to_have_text("Complete")
+                    expect(page.locator("#progress")).to_have_attribute("value", "25")
+                    expect(page.locator("#chart-figure")).to_be_visible()
+                    expect(page.locator("#monitor-range")).to_have_text("Viewing episodes 1–25")
+                    expect(page.locator(".monitor-card strong")).to_have_text(["Episode 10", "Episode 20", "Episode 25"])
+                    expect(page.locator("#monitor-progress")).to_have_attribute("value", "1")
+                    page.get_by_role("button", name=re.compile(r"^Inspect Episode 10,")).click()
+                    expect(page.locator("#trace-title")).to_contain_text("Training episode 10")
+                    page.locator("#replay").click()
+                    expect(page.locator("#policy-evaluation")).to_be_visible()
+                    expect(page.locator("#reference")).to_be_visible()
+                    expect(page.locator("#error")).to_be_hidden()
+                page.emulate_media(reduced_motion="no-preference")
+                check_grid_playback(page)
             finally:
                 if errors:
                     raise RuntimeError("\n".join(errors))
@@ -95,7 +157,7 @@ def main():
     options = parser.parse_args()
     check = check_hosted if options.hosted else check_local
     check(options.channel)
-    print("Dashboard smoke passed: page loaded, 25 episodes completed, and policy replay displayed.")
+    print("Dashboard smoke passed: Q-learning and PPO training and replays, and delayed DQN grid playback.")
 
 
 if __name__ == "__main__":

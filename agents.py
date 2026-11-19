@@ -19,9 +19,11 @@ class Agent:
         pass
 
 
-def greedy(values, random_source):
-    best = max(values)
-    return random_source.choice([action for action, value in enumerate(values) if value == best])
+def greedy(values, random_source, actions=None):
+    if actions is None:
+        actions = range(len(values))
+    best = max(values[action] for action in actions)
+    return random_source.choice([action for action in actions if values[action] == best])
 
 
 class TabularTD(Agent):
@@ -132,28 +134,33 @@ class QNetwork:
 class DQN(Agent):
     uses_epsilon = True
 
-    def __init__(self, width, height, phases, horizon, actions, gamma, seed):
+    def __init__(self, width, height, phases, horizon, actions, gamma, seed, valid_actions, potential):
         self.random = Random(seed)
         self.network = QNetwork(width, height, phases, horizon, actions, self.random)
         self.target = deepcopy(self.network)
         self.replay = deque(maxlen=5000)
         self.transitions = 0
         self.gamma = gamma
-        self.actions = actions
+        self.valid_actions = valid_actions
+        self.potential = potential
 
     def select(self, state, epsilon, random_source, learn):
+        actions = self.valid_actions[state[0]]
         if random_source.random() < epsilon:
-            return random_source.randrange(self.actions)
-        return greedy(self.network.values(state), random_source)
+            return random_source.choice(actions)
+        return greedy(self.network.values(state), random_source, actions)
 
     def observe(self, state, action, reward, next_state, next_action):
-        self.replay.append((state, action, reward / 100.0, next_state))
+        next_potential = self.potential(next_state) if next_state is not None else 0.0
+        shaping_reward = self.gamma * next_potential - self.potential(state)
+        self.replay.append((state, action, (reward + shaping_reward) / 100.0, next_state))
         self.transitions += 1
         if len(self.replay) >= 128 and self.transitions % 4 == 0:
             for sample_state, sample_action, sample_reward, sample_next in self.random.sample(self.replay, 4):
                 target = sample_reward
                 if sample_next is not None:
-                    target += self.gamma * max(self.target.values(sample_next))
+                    future = self.target.values(sample_next)
+                    target += self.gamma * max(future[option] for option in self.valid_actions[sample_next[0]])
                 self.network.train(sample_state, sample_action, target)
         if self.transitions % 250 == 0:
             self.target = deepcopy(self.network)
@@ -228,31 +235,33 @@ class ActorCritic(SoftmaxPolicy):
         self.discount *= self.gamma
 
 
-class ExploreThenCommit(Agent):
-    def __init__(self, routes, episodes, horizon):
-        self.routes = routes
-        self.horizon = horizon
-        self.exploration_episodes = len(routes) * max(1, episodes // (4 * len(routes)))
-        self.counts = [0] * len(routes)
-        self.totals = [0.0] * len(routes)
-        self.training_route = 0
+class PPO(SoftmaxPolicy):
+    def __init__(self, actions, gamma, seed):
+        super().__init__(actions, gamma)
+        self.critic = defaultdict(float)
+        self.trajectory = []
+        self.random = Random(seed)
 
-    def _best_route(self):
-        tried = [index for index, count in enumerate(self.counts) if count]
-        return max(tried, key=lambda index: self.totals[index] / self.counts[index], default=0)
-
-    def start_episode(self, episode, learn):
-        if learn:
-            if episode <= self.exploration_episodes:
-                self.training_route = (episode - 1) % len(self.routes)
-            else:
-                self.training_route = self._best_route()
-
-    def select(self, state, epsilon, random_source, learn):
-        route = self.training_route if learn else self._best_route()
-        return self.routes[route][self.horizon - state[2]]
+    def observe(self, state, action, reward, next_state, next_action):
+        self.trajectory.append((state, action, self.probabilities(state)[action], reward / 100.0))
 
     def finish_episode(self, reward):
-        if sum(self.counts) < self.exploration_episodes:
-            self.counts[self.training_route] += 1
-            self.totals[self.training_route] += reward
+        samples = []
+        advantage = next_value = 0.0
+        for state, action, old_probability, step_reward in reversed(self.trajectory):
+            value = self.critic.get(self.key(state), 0.0)
+            delta = step_reward + self.gamma * next_value - value
+            advantage = delta + self.gamma * 0.95 * advantage
+            samples.append((state, action, old_probability, advantage, value + advantage))
+            next_value = value
+        self.trajectory.clear()
+
+        for _ in range(4):
+            self.random.shuffle(samples)
+            for state, action, old_probability, advantage, target in samples:
+                probabilities = self.probabilities(state)
+                ratio = probabilities[action] / old_probability
+                if (advantage > 0 and ratio <= 1.2) or (advantage < 0 and ratio >= 0.8):
+                    self._improve(state, action, probabilities, 0.25 * ratio * advantage)
+                key = self.key(state)
+                self.critic[key] += 0.2 * (target - self.critic[key])
