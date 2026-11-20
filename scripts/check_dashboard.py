@@ -17,7 +17,7 @@ def check_browser(url, channel):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel=channel)
         try:
-            page = browser.new_page(reduced_motion="reduce")
+            page = browser.new_page(viewport={"width": 1536, "height": 900}, reduced_motion="reduce")
             page.set_default_timeout(5000)
             errors = []
 
@@ -31,6 +31,18 @@ def check_browser(url, channel):
             try:
                 page.goto(url)
                 expect(page.locator("#status")).to_have_text("Ready", timeout=25000)
+                floor = page.locator(".floor").bounding_box()
+                inspector = page.locator(".floor-inspector").bounding_box()
+                assert floor and inspector, "Expected the warehouse floor and transition inspector"
+                assert inspector["y"] >= floor["y"] + floor["height"], "Expected the inspector below the warehouse floor"
+                legend = page.locator(".floor-panel > .floor-content + .floor-legend")
+                map_key = legend.locator("summary")
+                expect(map_key).to_be_visible()
+                expect(legend.locator("ul")).to_be_hidden()
+                map_key.press("Enter")
+                expect(legend.locator("ul")).to_be_visible()
+                map_key.press("Space")
+                expect(legend.locator("ul")).to_be_hidden()
                 scrubber = page.get_by_role("slider", name="Trace tick")
                 scrubber.press("End")
                 expect(page.locator("#event")).to_contain_text("Returned to base")
@@ -53,6 +65,7 @@ def check_browser(url, channel):
                 expect(selected).to_have_attribute("aria-pressed", "false")
                 page.locator("#reference").click()
                 expect(page.locator("#trace-title")).to_contain_text("Fastest collision-free route")
+                map_key.click()
                 expect(page.locator("#map-key-reference")).to_be_visible()
                 expect(page.locator("#error")).to_be_hidden()
             finally:
