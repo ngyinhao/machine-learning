@@ -145,27 +145,27 @@
               <div><dt><i data-icon="blocked"></i>Blocked</dt><dd data-term="Blocked">—</dd></div>
               <div><dt><i data-icon="failure"></i>Failure</dt><dd data-term="Failure">—</dd></div>
             </dl>
-            <div class="floor-legend">
-              <h3 id="map-key-heading">Map key</h3>
-              <ul aria-labelledby="map-key-heading">
-                <li><canvas data-map-key="loaded" width="60" height="60" aria-hidden="true"></canvas>Loaded robot</li>
-                <li><canvas data-map-key="unloaded" width="60" height="60" aria-hidden="true"></canvas>Empty robot</li>
-                <li><canvas data-map-key="forklift" width="60" height="60" aria-hidden="true"></canvas>Forklift</li>
-                <li><canvas data-map-key="parcel" width="60" height="60" aria-hidden="true"></canvas>Parcel</li>
-                <li><canvas data-map-key="home" width="60" height="60" aria-hidden="true"></canvas>Home base</li>
-                <li><canvas data-map-key="dock" width="60" height="60" aria-hidden="true"></canvas>Delivery dock</li>
-                <li><canvas data-map-key="shelf" width="60" height="60" aria-hidden="true"></canvas>Shelf</li>
-                <li><canvas data-map-key="wall" width="60" height="60" aria-hidden="true"></canvas>Perimeter wall</li>
-                <li id="map-key-outbound"><canvas data-map-key="outbound" width="60" height="60" aria-hidden="true"></canvas>Outbound trail</li>
-                <li id="map-key-return" hidden><canvas data-map-key="returning" width="60" height="60" aria-hidden="true"></canvas>Return trail</li>
-                <li id="map-key-patrol" hidden><canvas data-map-key="patrol" width="60" height="60" aria-hidden="true"></canvas>Patrol loop</li>
-                <li id="map-key-exposure" hidden><canvas data-map-key="exposure" width="60" height="60" aria-hidden="true"></canvas>Forklift exposure</li>
-                <li id="map-key-preview"><canvas data-map-key="preview" width="60" height="60" aria-hidden="true"></canvas>Preview route</li>
-                <li id="map-key-reference" hidden><canvas data-map-key="reference" width="60" height="60" aria-hidden="true"></canvas>Fastest route</li>
-              </ul>
-            </div>
           </div>
         </div>
+        <details class="floor-legend">
+          <summary id="map-key-heading">Map key</summary>
+          <ul aria-labelledby="map-key-heading">
+            <li><canvas data-map-key="loaded" width="60" height="60" aria-hidden="true"></canvas>Loaded robot</li>
+            <li><canvas data-map-key="unloaded" width="60" height="60" aria-hidden="true"></canvas>Empty robot</li>
+            <li><canvas data-map-key="forklift" width="60" height="60" aria-hidden="true"></canvas>Forklift</li>
+            <li><canvas data-map-key="parcel" width="60" height="60" aria-hidden="true"></canvas>Parcel</li>
+            <li><canvas data-map-key="home" width="60" height="60" aria-hidden="true"></canvas>Home base</li>
+            <li><canvas data-map-key="dock" width="60" height="60" aria-hidden="true"></canvas>Delivery dock</li>
+            <li><canvas data-map-key="shelf" width="60" height="60" aria-hidden="true"></canvas>Shelf</li>
+            <li><canvas data-map-key="wall" width="60" height="60" aria-hidden="true"></canvas>Perimeter wall</li>
+            <li id="map-key-outbound"><canvas data-map-key="outbound" width="60" height="60" aria-hidden="true"></canvas>Outbound trail</li>
+            <li id="map-key-return" hidden><canvas data-map-key="returning" width="60" height="60" aria-hidden="true"></canvas>Return trail</li>
+            <li id="map-key-patrol" hidden><canvas data-map-key="patrol" width="60" height="60" aria-hidden="true"></canvas>Patrol loop</li>
+            <li id="map-key-exposure" hidden><canvas data-map-key="exposure" width="60" height="60" aria-hidden="true"></canvas>Forklift exposure</li>
+            <li id="map-key-preview"><canvas data-map-key="preview" width="60" height="60" aria-hidden="true"></canvas>Preview route</li>
+            <li id="map-key-reference" hidden><canvas data-map-key="reference" width="60" height="60" aria-hidden="true"></canvas>Fastest route</li>
+          </ul>
+        </details>
       </section>
       <section class="panel curve-panel" aria-labelledby="curve-heading">
         <div class="panel-heading">
