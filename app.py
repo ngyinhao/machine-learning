@@ -13,6 +13,7 @@ ASSETS = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/styles.css": ("styles.css", "text/css; charset=utf-8"),
     "/episode-grid.js": ("episode-grid.js", "text/javascript; charset=utf-8"),
+    "/warehouse-map.js": ("warehouse-map.js", "text/javascript; charset=utf-8"),
     "/dashboard.js": ("dashboard.js", "text/javascript; charset=utf-8"),
 }
 

@@ -45,6 +45,14 @@ Each check starts a separate server on a free port, opens the dashboard, trains 
 
 Push feature branches and open pull requests to `main`. GitHub Actions runs the `Dashboard smoke` job on those pull requests. The branch protection rule requires that check to pass on an up-to-date branch before merging, including for repository admins.
 
+## Release the hosted dashboard
+
+When a dashboard change is merged to GitHub `main`, publish it to the existing private Warehouse RL Lab Site as part of the same release. GitHub Actions runs the smoke checks. Publication goes through ChatGPT Sites.
+
+1. Fetch the merged `main` revision and check it out in a clean worktree. Record its commit SHA, then run `python scripts/build_hosted_dashboard.py` from that checkout.
+2. Use the generated `sites/warehouse-rl-lab/dist` assets to update the existing Site's source repository. Save and deploy that version through ChatGPT Sites with the existing access settings.
+3. Verify that the deployment succeeded. Record the GitHub commit, the live Site version, and the URL in the release handoff.
+
 ## Watch a training run
 
 1. Play the shortest-path preview to inspect the static warehouse before training.
