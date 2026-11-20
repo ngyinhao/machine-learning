@@ -6,6 +6,8 @@ The map occupies the main desktop column. Run configuration and the learning cur
 
 Use system sans-serif for text and tabular figures for metrics. Reserve rounded corners for grouped sections and controls. Use lines and surface colors for structure.
 
-Render the floor as a labeled grid with separate treatments for walls, shelving, the delivery aisle, and the dock. Rotate the robot and forklift in their direction of travel and draw the robot's trail as it moves. Mark drop-offs, returns to base, and collisions at the recorded tick. Show the robot without its parcel on the return journey.
+Frame the labeled grid with a continuous concrete perimeter and a clear inner edge. Use open rack compartments for shelves, a roof outline for home base, and a U-shaped bay for the dock. The robot uses a lime chassis with a filled parcel or an empty cargo bay. The forklift uses an amber cab and two projecting forks. Reuse the same shapes in the legend and episode grid.
 
-Pause playback in place and let the scrubber jump to exact ticks. Under reduced motion, skip autoplay and show discrete ticks when the user plays a trace.
+Use a solid lime outbound trail, a dotted green return trail, an amber patrol loop, and a long-dashed blue-grey fastest route. Pair each transition with a labeled icon. Draw a dotted connector for forklift exposure, pause bars for waits, a barrier on the attempted cell for blocked moves, and a cross or clock for terminal failures. Mark a parcel drop-off at the dock and a completed return at home base.
+
+Interpolate vehicle positions and headings between recorded ticks. Update reward terms and event labels at the recorded tick. Pause playback in place and let the scrubber jump to exact ticks. Under reduced motion, skip autoplay and show discrete ticks when the user plays a trace.
