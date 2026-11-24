@@ -8,6 +8,7 @@
 
 - Keep `main` ready for release. In a Git checkout, do implementation work on a feature branch in a separate worktree. Run each preview on its own port with `python app.py --port 0`.
 - Run the dashboard smoke check before proposing changes for `main`. See [the worktree and merge workflow](docs/README.md#worktrees-and-merges).
+- When a dashboard change reaches GitHub `main`, build the hosted dashboard from that merged revision, deploy it to the existing private ChatGPT Site, and verify the live deployment. Treat both updates as one release. Follow [the hosted dashboard release steps](docs/README.md#release-the-hosted-dashboard).
 
 ## Report Checkpoint
 

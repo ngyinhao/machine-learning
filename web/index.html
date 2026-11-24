@@ -7,9 +7,44 @@
   <title>Warehouse RL Lab</title>
   <link rel="stylesheet" href="/styles.css">
   <script src="/episode-grid.js" defer></script>
+  <script src="/warehouse-map.js" defer></script>
   <script src="/dashboard.js" defer></script>
 </head>
 <body>
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="icon-play" viewBox="0 0 24 24"><path d="M7 4l14 8-14 8z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M8 5v14m8-14v14" stroke-width="3"/></symbol>
+    <symbol id="icon-replay" viewBox="0 0 24 24"><path d="M4 11a8 8 0 1 1 2 7M4 5v6h6"/><path d="M11 9l5 3-5 3z" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4h16v-4"/></symbol>
+    <symbol id="icon-latest" viewBox="0 0 24 24"><path d="M3 12h13m-5-5 5 5-5 5m8-12v14"/></symbol>
+    <symbol id="icon-grid" viewBox="0 0 24 24"><path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z"/></symbol>
+    <symbol id="icon-stack" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4zm0 5 9 4 9-4M3 17l9 4 9-4"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="icon-sum" viewBox="0 0 24 24"><path d="M18 4H6l7 8-7 8h12"/></symbol>
+    <symbol id="icon-nodes" viewBox="0 0 24 24"><path d="m8 7 8 4m-8 6 8-4"/><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/></symbol>
+    <symbol id="icon-forklift" viewBox="0 0 24 24"><path d="M4 6h11v12H4zm4 4h3v4H8zM15 4v16m0-4h6m-6-8h6"/></symbol>
+    <symbol id="icon-flag" viewBox="0 0 24 24"><path d="M5 21V4h14l-3 4 3 4H5"/></symbol>
+    <symbol id="icon-reference" viewBox="0 0 24 24"><path d="M13 15V4h8l-2 3 2 3h-8"/><path d="M3 20h2m3-3v-2m3-3h2"/></symbol>
+    <symbol id="icon-hash" viewBox="0 0 24 24"><path d="M10 4 7 20m10-16-3 16M4 9h17M3 15h17"/></symbol>
+    <symbol id="icon-scale" viewBox="0 0 24 24"><path d="M12 4v16M6 20h12M4 7h16M6 7l-3 7h6zm12 0-3 7h6z"/></symbol>
+    <symbol id="icon-exposure" viewBox="0 0 24 24"><rect x="2" y="8" width="5" height="8" rx="1"/><rect x="17" y="8" width="5" height="8" rx="1"/><path d="M10 12h.1m3.8 0h.1" stroke-width="2.3"/></symbol>
+    <symbol id="icon-sliders" viewBox="0 0 24 24"><path d="M5 4v4m0 5v7M12 4v9m0 5v2m7-16v2m0 5v9M2 8h6m1 5h6m1-7h6"/></symbol>
+    <symbol id="icon-reset" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2 5M4 6v6h6"/></symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="icon-bolt" viewBox="0 0 24 24"><path d="m13 3-8 10h6l-1 8 9-11h-6z"/></symbol>
+    <symbol id="icon-blocked" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 12h8"/></symbol>
+    <symbol id="icon-failure" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/></symbol>
+    <symbol id="icon-alert" viewBox="0 0 24 24"><path d="m12 4 9 16H3zm0 6v4m0 3h.1"/></symbol>
+    <symbol id="icon-steps" viewBox="0 0 24 24"><path d="M3 19h6v-5h6V9h6V5"/></symbol>
+    <symbol id="icon-chart" viewBox="0 0 24 24"><path d="M4 4v16h16M7 15l4-4 3 2 5-6"/></symbol>
+    <symbol id="icon-parcel-check" viewBox="0 0 24 24"><path d="M11 20H4V5h15v7M10 5v5h4V5m0 13 2 2 5-5"/></symbol>
+    <symbol id="icon-home-check" viewBox="0 0 24 24"><path d="m3 11 9-7 9 7M6 10v10h5m3-2 2 2 5-5"/></symbol>
+    <symbol id="icon-dot" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-up" viewBox="0 0 24 24"><path d="M12 20V4m-6 6 6-6 6 6"/></symbol>
+    <symbol id="icon-right" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+    <symbol id="icon-down" viewBox="0 0 24 24"><path d="M12 4v16m-6-6 6 6 6-6"/></symbol>
+    <symbol id="icon-left" viewBox="0 0 24 24"><path d="M20 12H4m6-6-6 6 6 6"/></symbol>
+  </svg>
   <header class="masthead">
     <div class="shell topbar">
       <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span> Warehouse RL Lab</div>
@@ -23,21 +58,21 @@
         <h1>Train a delivery robot</h1>
         <p>Follow its routes and see how reward weights change its decisions.</p>
       </div>
-      <button id="export" type="button" disabled><span aria-hidden="true">↓</span> Download training CSV</button>
+      <button id="export" type="button" disabled><i data-icon="download"></i>Download training CSV</button>
     </div>
     <dl class="stats" aria-label="Training summary">
-      <div><dt>Episodes</dt><dd id="episode-stat">0 <small>/ 1,500</small></dd></div>
-      <div><dt>Completion rate <small>last 25</small></dt><dd id="success-stat">—</dd></div>
-      <div><dt>Mean return <small>last 25</small></dt><dd id="reward-stat">—</dd></div>
+      <div><dt><i data-icon="stack"></i>Episodes</dt><dd id="episode-stat">0 <small>/ 1,500</small></dd></div>
+      <div><dt><i data-icon="check"></i>Completion rate <small>last 25</small></dt><dd id="success-stat">—</dd></div>
+      <div><dt><i data-icon="sum"></i>Mean return <small>last 25</small></dt><dd id="reward-stat">—</dd></div>
       <div><dt>Exploration ε</dt><dd id="epsilon-stat">—</dd></div>
     </dl>
     <div class="columns">
       <section class="panel run-panel" aria-labelledby="run-heading">
-        <div class="panel-heading"><h2 id="run-heading" tabindex="-1">Training setup</h2><span id="status" class="status" role="status">Loading</span></div>
+        <div class="panel-heading"><h2 id="run-heading" tabindex="-1">Training setup</h2><span id="status" class="status" role="status"><i data-icon="clock"></i><span data-label>Loading</span></span></div>
         <form id="setup">
           <fieldset id="settings" disabled>
             <legend class="sr-only">Training settings</legend>
-            <label>Algorithm<select id="algorithm">
+            <label><span><i data-icon="nodes"></i>Algorithm</span><select id="algorithm">
               <optgroup label="Value-based">
                 <option value="q_learning">Q-learning</option>
                 <option value="sarsa">SARSA</option>
@@ -53,78 +88,96 @@
                 <option value="etc">Explore-Then-Commit</option>
               </optgroup>
             </select></label>
-            <label>Traffic<select id="traffic"><option value="none">No traffic</option><option value="patrol" selected>Forklift patrol</option></select></label>
-            <label>Mission<select id="mission"><option value="return">Deliver and return home</option><option value="deliver">Deliver only</option></select></label>
-            <label>Episodes<input id="episodes" type="number" min="25" max="3000" step="1" value="1500" required></label>
-            <label>Random seed<input id="seed" type="number" min="0" max="4294967295" step="1" value="42" required></label>
-            <label>Reward profile<select id="profile"><option value="balanced">Operational</option><option value="efficiency">Time + energy</option><option value="sparse">Delivery + failure</option></select></label>
-            <label>Exposure cost / tick<input id="exposure" type="number" min="0" max="20" step="0.05" value="0.15" required></label>
+            <label><span><i data-icon="forklift"></i>Traffic</span><select id="traffic"><option value="none">No traffic</option><option value="patrol" selected>Forklift patrol</option></select></label>
+            <label><span><i data-icon="flag"></i>Mission</span><select id="mission"><option value="return">Deliver and return home</option><option value="deliver">Deliver only</option></select></label>
+            <label><span><i data-icon="stack"></i>Episodes</span><input id="episodes" type="number" min="25" max="3000" step="1" value="1500" required></label>
+            <label><span><i data-icon="hash"></i>Random seed</span><input id="seed" type="number" min="0" max="4294967295" step="1" value="42" required></label>
+            <label><span><i data-icon="scale"></i>Reward profile</span><select id="profile"><option value="balanced">Operational</option><option value="efficiency">Time + energy</option><option value="sparse">Delivery + failure</option></select></label>
+            <label><span><i data-icon="exposure"></i>Exposure cost / tick</span><input id="exposure" type="number" min="0" max="20" step="0.05" value="0.15" required></label>
           </fieldset>
           <p id="profile-note" class="hint">Scores delivery, time, energy, forklift clearance, blocked moves, and failure.</p>
           <details id="advanced-settings" class="advanced-settings" hidden>
-            <summary>Advanced hyperparameters</summary>
+            <summary><i data-icon="sliders"></i>Advanced hyperparameters</summary>
             <p id="hyperparameter-note" class="hint" aria-live="polite"></p>
             <fieldset id="hyperparameter-settings" disabled>
               <legend class="sr-only">Algorithm hyperparameters</legend>
               <div id="hyperparameter-fields" class="hyperparameter-fields"></div>
-              <button id="reset-hyperparameters" type="button">Reset to defaults</button>
+              <button id="reset-hyperparameters" type="button"><i data-icon="reset"></i>Reset to defaults</button>
             </fieldset>
           </details>
           <p id="paused-note" class="hint" hidden>Changes apply when you start a new run. Resuming uses the original settings.</p>
           <div class="run-actions">
-            <button class="primary" id="start" type="submit" disabled>Start training</button>
-            <button id="pause" type="button" disabled>Pause training</button>
-            <button id="replay" type="button" disabled>Replay trained policy</button>
-            <button id="reference" type="button" hidden>Play fastest route</button>
+            <button class="primary" id="start" type="submit" disabled><i data-icon="play"></i><span data-label>Start training</span></button>
+            <button id="pause" type="button" disabled><i data-icon="pause"></i><span data-label>Pause training</span></button>
+            <button id="replay" type="button" disabled><i data-icon="replay"></i>Replay trained policy</button>
+            <button id="reference" type="button" hidden><i data-icon="reference"></i>Play fastest route</button>
           </div>
           <p id="policy-evaluation" class="hint" role="status" hidden></p>
-          <a class="monitor-link" href="#episode-grid">View episode grid ↓</a>
+          <a class="monitor-link" href="#episode-grid"><i data-icon="grid"></i>View episode grid</a>
         </form>
-        <p id="error" class="error" role="alert" hidden></p>
+        <p id="error" class="error" role="alert" hidden><i data-icon="alert"></i><span data-label></span></p>
       </section>
       <section class="panel floor-panel" aria-labelledby="floor-heading">
         <div class="panel-heading">
           <div><h2 id="floor-heading" tabindex="-1">Warehouse floor</h2><p id="trace-title">Shortest-path preview · no traffic</p></div>
           <span class="tick">Tick <span id="tick">00</span></span>
         </div>
-        <div class="playback">
-          <button id="play" type="button" disabled>Play trace</button>
-          <label class="scrubber"><span class="sr-only">Trace tick</span><input id="scrub" type="range" min="0" max="0" value="0" disabled></label>
-          <span id="trace-limit">0 / 0</span>
-          <button id="follow" type="button" disabled>Show latest</button>
-        </div>
-        <div class="floor">
-          <canvas id="map" width="500" height="500" role="img" aria-label="Warehouse map with robot, shelves, forklift and delivery dock."></canvas>
-          <div class="floor-legend" aria-label="Map legend">
-            <span><i class="robot-key"></i> Robot</span><span><i class="route-key"></i> Route</span>
-            <span><i class="forklift-key"></i> Forklift</span>
-            <span><i class="dock-key"></i> Dock</span><span><i class="base-key"></i> Home base</span><span><i class="shelf-key"></i> Shelf</span>
+        <div class="floor-content">
+          <div class="floor">
+            <canvas id="map" width="500" height="500" role="img" aria-label="Warehouse floor plan"></canvas>
+            <div class="playback">
+              <button id="play" type="button" disabled><i data-icon="play"></i><span data-label>Play trace</span></button>
+              <label class="scrubber"><span class="sr-only">Trace tick</span><input id="scrub" type="range" min="0" max="0" value="0" disabled></label>
+              <span id="trace-limit">0 / 0</span>
+              <button id="follow" type="button" disabled><i data-icon="latest"></i>Show latest</button>
+            </div>
+          </div>
+          <div class="floor-inspector">
+            <div class="event-readout">
+              <div><h3>Current transition</h3><p id="event">Play a trace to inspect its transitions.</p></div>
+              <strong id="step-reward" aria-label="Total transition reward">—</strong>
+            </div>
+            <dl id="reward-terms" class="reward-terms" aria-label="Current transition reward breakdown">
+              <div><dt><i data-icon="check"></i>Completion</dt><dd data-term="Delivery">—</dd></div>
+              <div><dt><i data-icon="clock"></i>Time</dt><dd data-term="Time">—</dd></div>
+              <div><dt><i data-icon="bolt"></i>Energy</dt><dd data-term="Energy">—</dd></div>
+              <div><dt><i data-icon="exposure"></i>Exposure</dt><dd data-term="Exposure">—</dd></div>
+              <div><dt><i data-icon="blocked"></i>Blocked</dt><dd data-term="Blocked">—</dd></div>
+              <div><dt><i data-icon="failure"></i>Failure</dt><dd data-term="Failure">—</dd></div>
+            </dl>
           </div>
         </div>
-        <div class="event-readout">
-          <div><h3>Current transition</h3><p id="event">Run a training session or play the route preview.</p></div>
-          <strong id="step-reward">—</strong>
-        </div>
-        <dl id="reward-terms" class="reward-terms" aria-label="Current transition reward breakdown">
-          <div><dt>Completion</dt><dd data-term="Delivery">—</dd></div>
-          <div><dt>Time</dt><dd data-term="Time">—</dd></div>
-          <div><dt>Energy</dt><dd data-term="Energy">—</dd></div>
-          <div><dt>Exposure</dt><dd data-term="Exposure">—</dd></div>
-          <div><dt>Blocked</dt><dd data-term="Blocked">—</dd></div>
-          <div><dt>Failure</dt><dd data-term="Failure">—</dd></div>
-        </dl>
+        <details class="floor-legend">
+          <summary id="map-key-heading">Map key</summary>
+          <ul aria-labelledby="map-key-heading">
+            <li><canvas data-map-key="loaded" width="60" height="60" aria-hidden="true"></canvas>Loaded robot</li>
+            <li><canvas data-map-key="unloaded" width="60" height="60" aria-hidden="true"></canvas>Empty robot</li>
+            <li><canvas data-map-key="forklift" width="60" height="60" aria-hidden="true"></canvas>Forklift</li>
+            <li><canvas data-map-key="parcel" width="60" height="60" aria-hidden="true"></canvas>Parcel</li>
+            <li><canvas data-map-key="home" width="60" height="60" aria-hidden="true"></canvas>Home base</li>
+            <li><canvas data-map-key="dock" width="60" height="60" aria-hidden="true"></canvas>Delivery dock</li>
+            <li><canvas data-map-key="shelf" width="60" height="60" aria-hidden="true"></canvas>Shelf</li>
+            <li><canvas data-map-key="wall" width="60" height="60" aria-hidden="true"></canvas>Perimeter wall</li>
+            <li id="map-key-outbound"><canvas data-map-key="outbound" width="60" height="60" aria-hidden="true"></canvas>Outbound trail</li>
+            <li id="map-key-return" hidden><canvas data-map-key="returning" width="60" height="60" aria-hidden="true"></canvas>Return trail</li>
+            <li id="map-key-patrol" hidden><canvas data-map-key="patrol" width="60" height="60" aria-hidden="true"></canvas>Patrol loop</li>
+            <li id="map-key-exposure" hidden><canvas data-map-key="exposure" width="60" height="60" aria-hidden="true"></canvas>Forklift exposure</li>
+            <li id="map-key-preview"><canvas data-map-key="preview" width="60" height="60" aria-hidden="true"></canvas>Preview route</li>
+            <li id="map-key-reference" hidden><canvas data-map-key="reference" width="60" height="60" aria-hidden="true"></canvas>Fastest route</li>
+          </ul>
+        </details>
       </section>
       <section class="panel curve-panel" aria-labelledby="curve-heading">
         <div class="panel-heading">
           <div><h2 id="curve-heading">Learning curve</h2><p>Episode return is the total reward from one training episode.</p></div>
-          <span id="curve-status" class="status">Loading</span>
+          <span id="curve-status" class="status"><i data-icon="clock"></i><span data-label>Loading</span></span>
         </div>
         <div id="chart-empty" class="chart-empty">
           <div role="status">
-            <h3 id="chart-empty-heading">Loading the warehouse</h3>
+            <h3 id="chart-empty-heading"><i data-icon="clock"></i><span data-label>Loading the warehouse</span></h3>
             <p id="chart-empty-note">The chart will be available when training setup is ready.</p>
           </div>
-          <a id="chart-setup-link" href="#run-heading" hidden>Go to training setup <span aria-hidden="true">↑</span></a>
+          <a id="chart-setup-link" href="#run-heading" hidden><i data-icon="up"></i>Go to training setup</a>
         </div>
         <figure id="chart-figure" class="chart-figure" hidden>
           <canvas id="chart" width="420" height="185" role="img" aria-label="Episode returns by training episode" aria-describedby="chart-caption"></canvas>
@@ -143,36 +196,36 @@
         </div>
       </section>
       <section class="panel episode-panel" aria-labelledby="episode-heading">
-          <div class="panel-heading"><h2 id="episode-heading">Latest training episode</h2><span id="outcome" class="status">—</span></div>
+          <div class="panel-heading"><h2 id="episode-heading">Latest training episode</h2><span id="outcome" class="status"><i data-icon="dot"></i><span data-label>—</span></span></div>
           <dl class="episode-details">
-            <div><dt>Steps</dt><dd id="steps">—</dd></div>
-            <div><dt>Energy used</dt><dd id="energy">—</dd></div>
-            <div><dt>Exposure ticks</dt><dd id="exposures">—</dd></div>
+            <div><dt><i data-icon="steps"></i>Steps</dt><dd id="steps">—</dd></div>
+            <div><dt><i data-icon="bolt"></i>Energy used</dt><dd id="energy">—</dd></div>
+            <div><dt><i data-icon="exposure"></i>Exposure ticks</dt><dd id="exposures">—</dd></div>
           </dl>
       </section>
     </div>
     <section id="episode-grid" class="panel episode-monitor" aria-labelledby="monitor-heading">
       <div class="panel-heading monitor-heading">
         <div><h2 id="monitor-heading">Episode grid</h2><p id="monitor-range">Recorded episodes play together as training progresses.</p></div>
-        <button id="monitor-play" type="button" disabled>Pause grid</button>
+        <button id="monitor-play" type="button" disabled><i data-icon="pause"></i><span data-label>Pause grid</span></button>
       </div>
       <details class="monitor-settings">
-        <summary>Grid settings</summary>
+        <summary><i data-icon="sliders"></i>Grid settings</summary>
         <fieldset id="monitor-settings" aria-describedby="monitor-settings-note">
           <legend class="sr-only">Grid settings for the next run</legend>
-          <label>Episodes per group<select id="monitor-batch">
+          <label><span><i data-icon="stack"></i>Episodes per group</span><select id="monitor-batch">
             <option value="50">50</option>
             <option value="100" selected>100</option>
             <option value="200">200</option>
             <option value="500">500</option>
           </select></label>
-          <label>Sample every<select id="monitor-interval">
+          <label><span><i data-icon="steps"></i>Sample every</span><select id="monitor-interval">
             <option value="10" selected>10 episodes</option>
             <option value="20">20 episodes</option>
             <option value="50">50 episodes</option>
             <option value="100">100 episodes</option>
           </select></label>
-          <label>Maximum maps<select id="monitor-limit">
+          <label><span><i data-icon="grid"></i>Maximum maps</span><select id="monitor-limit">
             <option value="1">1</option>
             <option value="4">4</option>
             <option value="6">6</option>
@@ -188,10 +241,10 @@
       </div>
     </section>
     <template id="monitor-card">
-      <button class="monitor-card" type="button">
+      <button class="monitor-card" type="button" aria-pressed="false">
         <strong></strong>
         <canvas width="250" height="250" aria-hidden="true"></canvas>
-        <span></span>
+        <span class="monitor-summary"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use></use></svg><span data-label></span></span>
       </button>
     </template>
     <footer>10 × 10 warehouse · One parcel · Four directions + wait</footer>

@@ -1,10 +1,11 @@
 "use strict";
 
 class EpisodeGrid {
-  constructor({ paint, inspect, describe, motion }) {
+  constructor({ paint, inspect, describe, setLabel, motion }) {
     this.paint = paint;
     this.inspect = inspect;
     this.describe = describe;
+    this.setLabel = setLabel;
     this.motion = motion;
     this.range = document.getElementById("monitor-range");
     this.status = document.getElementById("monitor-status");
@@ -30,6 +31,7 @@ class EpisodeGrid {
     this.complete = false;
     this.group = null;
     this.latest = null;
+    this.selected = null;
     this.samples = [];
     this.trained = 0;
     this.batchStart = 0;
@@ -116,12 +118,14 @@ class EpisodeGrid {
       tile.position = -1;
       tile.button.hidden = false;
       tile.button.firstElementChild.textContent = label.title;
-      tile.button.lastElementChild.textContent = label.summary;
+      this.setLabel(tile.button.lastElementChild, label.summary, label.icon);
       tile.button.setAttribute("aria-label", `Inspect ${label.title}, ${label.summary}`);
+      tile.button.setAttribute("aria-pressed", sample === this.selected);
     });
     for (const tile of this.tiles.slice(this.group.samples.length)) {
       tile.sample = null;
       tile.button.hidden = true;
+      tile.button.setAttribute("aria-pressed", "false");
     }
     this.draw(this.live ? 0 : 1);
     if (this.live && this.complete) {
@@ -138,8 +142,19 @@ class EpisodeGrid {
     const tile = { button, context: canvas.getContext("2d") };
     this.tiles.push(tile);
     this.cards.append(button);
-    button.addEventListener("click", () => this.inspect(tile.sample));
+    button.addEventListener("click", () => {
+      this.clearSelection();
+      this.selected = tile.sample;
+      button.setAttribute("aria-pressed", "true");
+      this.inspect(tile.sample);
+    });
     return tile;
+  }
+
+  clearSelection() {
+    if (!this.selected) return;
+    this.selected = null;
+    this.cards.querySelector('[aria-pressed="true"]')?.setAttribute("aria-pressed", "false");
   }
 
   draw(position) {
@@ -197,7 +212,9 @@ class EpisodeGrid {
     if (this.motion.matches) action = "Autoplay off";
     else if (!watching && !this.complete) action = "Follow training";
     else if (!watching) action = this.group !== this.latest ? "Show latest group" : "Replay group";
-    this.control.textContent = action;
+    const icon = this.motion.matches || watching ? "pause"
+      : action === "Replay group" ? "replay" : action === "Show latest group" ? "latest" : "play";
+    this.setLabel(this.control, action, icon);
 
     const training = `Trained ${this.trained.toLocaleString()} of ${this.total.toLocaleString()} episodes`;
     let playback = "Following training";
