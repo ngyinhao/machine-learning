@@ -8,11 +8,11 @@ web
 
 ## Users
 
-The student developing the reinforcement-learning assignment and anyone observing the project demonstration. A local browser is the working assumption.
+Researchers and readers reviewing the warehouse navigation experiments in a browser.
 
 ## Product Purpose
 
-Train a warehouse navigation policy and see how its movement, delivery success and reward change through training.
+Visualize how reward and learner choices affect delivery success, travel time, and forklift exposure. Learning curves and route replays connect measured outcomes to individual navigation decisions. The setup controls let readers reproduce runs for inspection.
 
 ## Capabilities and Constraints
 

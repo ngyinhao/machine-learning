@@ -1,6 +1,6 @@
 # Reinforcement-learning project directions
 
-Research checked: 10 November 2026. These options put reinforcement learning at the core. **Verified facts** describe upstream environments; **proposed designs** are assignment choices, not existing features or measured results. Effort estimates assume a small Python prototype. Installation and training were not tested.
+Research checked on 10 November 2026. These options examine where reinforcement learning could inform operational decisions. Verified facts describe upstream environments. Proposed designs describe experiments for future evaluation. Effort estimates assume a small Python prototype. Installation and training were not tested.
 
 ## 1. Warehouse navigation — initial recommendation
 
@@ -34,9 +34,9 @@ Research checked: 10 November 2026. These options put reinforcement learning at 
 
 **Estimated effort: high.** Dependency setup, charging constraints and reward scaling need particular care.
 
-## Assignment experiment plan
+## Experiment design
 
-For Part A, compare suitable RL algorithms with simple baseline policies under a common environment and interaction budget. For Part B, investigate hyperparameters, exploration schedules, state representations and reward design, then evaluate the selected configuration independently.
+Choose learners and simple baselines that answer a specific question about the task. Compare them under common conditions, then hold a suitable learner fixed while testing the reward against operational metrics. Use the observed behaviour to guide any search over hyperparameters, exploration schedules or state representations. Evaluate the selected configuration independently.
 
 Use multiple training seeds and a separate evaluation environment; random seeds can materially affect RL results. Keep evaluation rewards and episode limits consistent across agents, especially when comparing reward-shaping variants ([Stable-Baselines3 evaluation guidance](https://stable-baselines3.readthedocs.io/en/master/guide/rl_tips.html)).
 

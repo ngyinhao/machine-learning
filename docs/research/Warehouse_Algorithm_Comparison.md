@@ -1,5 +1,28 @@
 # Warehouse algorithm comparison
 
+## November 20, 2026 release verification
+
+The newest remote implementation checked on November 20 was `f652239` on `codex/dashboard-publish`. The rerun used Python 3.14.6 on Windows. The release replaces Explore-Then-Commit in the dashboard with PPO. It also gives DQN a static wall-action mask and training-only potential shaping. The historical runs below used the original methods.
+
+The one-way screen paired seeds 42–44 across the six supported learners, with 600 episodes per seed and traffic mode and an operational exposure cost of 2. Q-learning and SARSA used the original tabular settings explicitly. PPO completed 24 of 24 patrol replays in 20.67 mean ticks with zero exposure. It completed 75 of 75 sampled patrol episodes in the final 25 episodes per seed. Actor–Critic also completed 24 of 24 greedy replays, with five of 75 late sampled completions. Updated DQN completed 23 of 24 patrol replays with one collision and no timeouts. The 23 successful runs averaged 16.48 ticks. Q-learning remained the fastest method with full completion at 9.71 mean ticks.
+
+### DQN round-trip component ablation
+
+The wall-action mask limits actions to traversable neighbours and Wait during both action selection and target calculation. The shaping term adds `γΦ(next) − Φ(current)` before scaling the learning reward by 100. `Φ` is −10 times the remaining Manhattan distance through the mission goals and zero for all terminal successors. Masking tests whether wasting actions on walls accounts for the learning failures. Shaping tests whether geometric progress can provide feedback before the terminal reward. The four combinations hold the environment, logged operational reward, network, episode budget, and training seeds fixed.
+
+Every condition used 1,500 training episodes per seed, seeds 42–44, the patrol round trip, `balanced` with exposure cost 0.15, γ = 0.98, ε floor 0.05 and decay fraction 0.80. Each frozen policy was replayed in all eight starting phases.
+
+| Mask | Shape | Completed by seed | Total completed | Collision | Timeout | Mean successful ticks | Minimum-time matches |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Off | Off | 0, 0, 0 | 0/24 | 0 | 24 | — | 0/24 |
+| On | Off | 0, 0, 0 | 0/24 | 0 | 24 | — | 0/24 |
+| Off | On | 0, 0, 8 | 8/24 | 3 | 13 | 37.50 | 0/24 |
+| On | On | 8, 7, 8 | 23/24 | 1 | 0 | 27.43 | 1/24 |
+
+For a mask-off run, use `range(len(ACTIONS))` at every cell instead of `VALID_ACTIONS` in the DQN factory. For a shaping-off run, pass a potential that returns `0.0` for every state. Keep the terminal handling and reward reporting as implemented in `f652239`. The combined run reproduces the default seed-42 example on phase 6, with dock arrival at tick 19 and return at tick 27 against a 15-tick reference.
+
+The five-condition Q-learning reward ablation and the four-configuration tuning verification on both five-seed groups were rerun on `f652239`. They reproduced the report tables. The tuned light-clearance configuration matched minimum time in 36/40 fresh-seed replays and 37/40 historical verification replays. The DQN regression test and local Edge dashboard smoke check passed. The smoke check exercised Q-learning and PPO training and replays and confirmed that DQN grid playback continues during a deliberately delayed training batch.
+
 ## November 18, 2026 experiment
 
 This comparison adds neural Q-learning, direct policy gradients, and Actor–Critic to the tabular baselines. Explore-Then-Commit measures what a policy can gain from map-derived route candidates. The experiment holds the map, transition logic, and reward profile fixed. The tabular agents mask blocked moves using the static map. DQN and the two policy learners consider all five actions.
@@ -36,9 +59,9 @@ Refresh these tables if the agent defaults, warehouse, or reward implementation 
 
 ### November 18, 2026 tabular rerun
 
-The tabular spot-check found 24/24 patrol deliveries for both Q-learning and SARSA after the static move filter was introduced. The full Part A rerun above reproduces those counts and adds the results for the other methods under the same episode budget and reward profile.
+The tabular spot-check found 24/24 patrol deliveries for both Q-learning and SARSA after the static move filter was introduced. The full one-way comparison above reproduces those counts and adds the results for the other methods under the same episode budget and reward profile.
 
-## Part B tuning record
+## Learner tuning record
 
 The one-way comparison records the pre-tuning configurations and outcomes. The following values describe the original tabular settings. The dashboard now uses the round-trip Q-learning settings documented below.
 
