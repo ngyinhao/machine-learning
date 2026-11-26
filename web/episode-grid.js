@@ -14,11 +14,17 @@ class EpisodeGrid {
     this.cards = document.getElementById("monitor-cards");
     this.template = document.getElementById("monitor-card");
     this.tiles = [];
+    this.visible = false;
     this.control.addEventListener("click", () => this.toggle());
     this.motion.addEventListener("change", () => {
       this.live = !this.motion.matches;
       this.showLatest();
     });
+    document.addEventListener("visibilitychange", () => this.syncPlayback());
+    new IntersectionObserver(([entry]) => {
+      this.visible = entry.isIntersecting;
+      this.syncPlayback();
+    }).observe(document.getElementById("episode-grid"));
   }
 
   reset(total) {
@@ -35,7 +41,7 @@ class EpisodeGrid {
     this.samples = [];
     this.trained = 0;
     this.batchStart = 0;
-    this.startedAt = this.lastUpdate = performance.now();
+    this.startedAt = performance.now();
     this.pausedAt = null;
     this.cards.hidden = true;
     this.progress.value = 0;
@@ -47,18 +53,17 @@ class EpisodeGrid {
     if (paused && this.pausedAt === null) {
       this.pausedAt = performance.now();
     } else if (!paused && this.pausedAt != null) {
-      const now = performance.now();
-      this.startedAt += now - this.pausedAt;
-      this.lastUpdate = now;
+      this.startedAt += performance.now() - this.pausedAt;
       this.pausedAt = null;
     }
-    if (this.total) this.refresh();
+    if (this.total) {
+      this.syncPlayback();
+      this.refresh();
+    }
   }
 
   record(episode, frames, complete) {
     const now = performance.now();
-    const chunkDuration = (this.pausedAt ?? now) - this.lastUpdate;
-    this.lastUpdate = now;
     this.trained = episode.episode;
     this.complete = complete;
     const end = Math.min(this.total, this.batchStart + this.batchSize);
@@ -68,9 +73,6 @@ class EpisodeGrid {
     }
 
     if (!boundary) {
-      if (this.live && this.group && this.group === this.latest) {
-        this.moveTo(this.trainingProgress(), Math.min(150, Math.max(0, chunkDuration)));
-      }
       this.refresh();
       return;
     }
@@ -90,18 +92,11 @@ class EpisodeGrid {
     this.startedAt = now;
     if (this.pausedAt !== null) this.pausedAt = now;
 
-    if (this.live && this.group && !document.hidden) {
-      this.moveTo(1, 75);
-      this.handoff = setTimeout(() => this.showLatest(), 220);
-    } else if (this.live || !this.group || this.motion.matches) {
+    if (this.live || !this.group || this.motion.matches) {
       this.showLatest();
+    } else {
+      this.refresh();
     }
-    this.refresh();
-  }
-
-  trainingProgress() {
-    const nextEnd = Math.min(this.group.end + this.batchSize, this.total);
-    return (this.trained - this.group.end) / (nextEnd - this.group.end);
   }
 
   showLatest() {
@@ -128,11 +123,7 @@ class EpisodeGrid {
       tile.button.setAttribute("aria-pressed", "false");
     }
     this.draw(this.live ? 0 : 1);
-    if (this.live && this.complete) {
-      this.moveTo(1, this.group.duration);
-    } else if (this.live) {
-      this.moveTo(this.trainingProgress(), 0);
-    }
+    this.syncPlayback();
     this.refresh();
   }
 
@@ -169,44 +160,54 @@ class EpisodeGrid {
     }
   }
 
-  moveTo(target, duration) {
-    cancelAnimationFrame(this.frame);
-    this.frame = 0;
-    const from = this.position;
-    if (!duration || target <= from || document.hidden) {
-      this.draw(target);
+  syncPlayback() {
+    if (!this.isWatching() || !this.visible || document.hidden || this.pausedAt !== null) {
+      this.stop();
       return;
     }
-    const start = performance.now();
+    if (this.frame) return;
+    const { duration } = this.group;
+    let start;
     const render = (now) => {
-      const elapsed = Math.max(0, Math.min(1, (now - start) / duration));
-      this.draw(from + (target - from) * elapsed);
-      this.frame = elapsed < 1 ? requestAnimationFrame(render) : 0;
-      if (!this.frame) this.refresh();
+      start ??= now - (this.position === 1 ? 0 : this.position * duration);
+      const position = Math.min(1, (now - start) / duration);
+      this.draw(position);
+      if (position === 1 && this.complete) {
+        this.frame = 0;
+        this.refresh();
+      } else {
+        if (position === 1) start = undefined;
+        this.frame = requestAnimationFrame(render);
+      }
     };
     this.frame = requestAnimationFrame(render);
   }
 
   stop() {
     cancelAnimationFrame(this.frame);
-    clearTimeout(this.handoff);
     this.frame = 0;
-    this.handoff = 0;
+  }
+
+  isWatching() {
+    return this.group && this.live && (!this.complete || this.position < 1);
   }
 
   toggle() {
-    if (this.live && (!this.complete || this.frame || this.handoff)) {
+    if (this.isWatching()) {
       this.live = false;
-      this.stop();
-      this.refresh();
     } else {
       this.live = true;
-      this.showLatest();
+      if (this.group !== this.latest || (this.complete && this.position === 1)) {
+        this.showLatest();
+        return;
+      }
     }
+    this.syncPlayback();
+    this.refresh();
   }
 
   refresh() {
-    const watching = this.live && (!this.complete || this.frame || this.handoff);
+    const watching = this.isWatching();
     this.control.disabled = !this.group || this.motion.matches;
     let action = "Pause grid";
     if (this.motion.matches) action = "Autoplay off";
@@ -217,12 +218,11 @@ class EpisodeGrid {
     this.setLabel(this.control, action, icon);
 
     const training = `Trained ${this.trained.toLocaleString()} of ${this.total.toLocaleString()} episodes`;
-    let playback = "Following training";
+    let playback = "Playing recorded episodes";
     if (!this.group) playback = `Next group at ${Math.min(this.total, this.batchSize).toLocaleString()}`;
     else if (this.motion.matches) playback = "Showing final positions";
     else if (!this.live) playback = "Grid paused";
-    else if (this.handoff) playback = "Switching groups";
-    else if (this.complete) playback = this.frame ? "Playing final group" : "Playback complete";
+    else if (this.complete) playback = this.position < 1 ? "Playing final group" : "Playback complete";
     else if (this.pausedAt !== null) playback = "Training paused";
     this.status.textContent = `${training} · ${playback}`;
   }

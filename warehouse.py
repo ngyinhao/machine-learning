@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from functools import cache
 from random import Random
 
-from agents import ActorCritic, DQN, ExploreThenCommit, Reinforce, TabularTD
+from agents import ActorCritic, DQN, PPO, Reinforce, TabularTD
 
 
 LAYOUT = (
@@ -53,23 +53,6 @@ VALID_ACTIONS = {
     for column, marker in enumerate(cells)
     if marker != "#"
 }
-
-
-def shortest_route(*, crossing_row=None):
-    queue = deque([(START, ())])
-    visited = {START}
-    while queue:
-        cell, route = queue.popleft()
-        if cell == DOCK:
-            return route
-        for action, (horizontal, vertical) in enumerate(MOVES[:4]):
-            neighbor = (cell[0] + horizontal, cell[1] + vertical)
-            if crossing_row is not None and neighbor[0] == 4 and neighbor[1] != crossing_row:
-                continue
-            if walkable(neighbor) and neighbor not in visited:
-                visited.add(neighbor)
-                queue.append((neighbor, (*route, action)))
-    raise ValueError("The dock is unreachable.")
 
 
 @dataclass(frozen=True)
@@ -195,22 +178,25 @@ def demo_route(round_trip=False):
     return reference_trace("none", 0, round_trip, "balanced", 2.0)
 
 
-def route_options(round_trip):
-    routes = tuple(shortest_route(crossing_row=row) for row in (None, 2, 8))
-    if round_trip:
-        return tuple(route + tuple((action + 2) % 4 for action in reversed(route)) for route in routes)
-    return routes
+def dqn_potential(state, round_trip):
+    position, _, _, returning = state
+    goal = START if returning else DOCK
+    distance = sum(abs(source - target) for source, target in zip(position, goal))
+    if round_trip and not returning:
+        distance += sum(abs(dock - home) for dock, home in zip(DOCK, START))
+    return -10 * distance
 
 
 AGENTS = {
     "q_learning": TabularTD,
     "sarsa": TabularTD,
-    "dqn": lambda episodes, seed, round_trip: DQN(
-        len(LAYOUT[0]), len(LAYOUT), len(PATROL), HORIZON, len(ACTIONS), GAMMA, seed
+    "dqn": lambda seed, round_trip: DQN(
+        len(LAYOUT[0]), len(LAYOUT), len(PATROL), HORIZON, len(ACTIONS), GAMMA, seed,
+        VALID_ACTIONS, lambda state: dqn_potential(state, round_trip),
     ),
-    "reinforce": lambda episodes, seed, round_trip: Reinforce(len(ACTIONS), GAMMA),
-    "actor_critic": lambda episodes, seed, round_trip: ActorCritic(len(ACTIONS), GAMMA),
-    "etc": lambda episodes, seed, round_trip: ExploreThenCommit(route_options(round_trip), episodes, HORIZON),
+    "reinforce": lambda seed, _round_trip: Reinforce(len(ACTIONS), GAMMA),
+    "actor_critic": lambda seed, _round_trip: ActorCritic(len(ACTIONS), GAMMA),
+    "ppo": lambda seed, _round_trip: PPO(len(ACTIONS), GAMMA, seed),
 }
 
 
@@ -236,7 +222,7 @@ class TrainingRun:
                 defaults["initial_q"] if initial_q is None else initial_q, VALID_ACTIONS,
             )
         else:
-            self.agent = AGENTS[algorithm](episodes, seed, round_trip)
+            self.agent = AGENTS[algorithm](seed, round_trip)
         self.history = []
 
     def _episode(self, environment, random_source, epsilon, learn, trace, episode):
