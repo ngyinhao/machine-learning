@@ -62,7 +62,7 @@
     </div>
     <dl class="stats" aria-label="Training summary">
       <div><dt><i data-icon="stack"></i>Episodes</dt><dd id="episode-stat">0 <small>/ 1,500</small></dd></div>
-      <div><dt><i data-icon="check"></i>Completion rate <small>last 25</small></dt><dd id="success-stat">—</dd></div>
+      <div><dt><i data-icon="check"></i><span id="completion-label">Completion rate</span> <small>last 25</small></dt><dd id="success-stat">—</dd></div>
       <div><dt><i data-icon="sum"></i>Mean return <small>last 25</small></dt><dd id="reward-stat">—</dd></div>
       <div><dt>Exploration ε</dt><dd id="epsilon-stat">—</dd></div>
     </dl>
@@ -72,6 +72,24 @@
         <form id="setup">
           <fieldset id="settings" disabled>
             <legend class="sr-only">Training settings</legend>
+            <label>Environment<select id="environment">
+              <option value="navigation">V0 · Navigation</option>
+              <option value="stocked_racks">V1 · Stocked racks</option>
+              <option value="charging_dock">V2 · Charging dock</option>
+              <option value="pack_and_stage">V3 · Pack and stage</option>
+              <option value="multiple_layouts">V4 · Multiple layouts</option>
+              <option value="shared_aisles">V5 · Shared aisles</option>
+              <option value="two_learning_robots">V6 · Two learning robots</option>
+              <option value="continuous_fulfillment">V7 · Continuous fulfillment</option>
+            </select></label>
+            <label id="training-start-setting" hidden>Training start<select id="training-start">
+              <option id="warm-start-option" value="warm">Warm start from V1</option>
+              <option value="scratch">From scratch</option>
+            </select></label>
+            <label id="layout-training-setting" hidden>Training floors<select id="layout-training">
+              <option value="original">Original only</option>
+              <option value="mixed" selected>Original and parallel aisles</option>
+            </select></label>
             <label><span><i data-icon="nodes"></i>Algorithm</span><select id="algorithm">
               <optgroup label="Value-based">
                 <option value="q_learning">Q-learning</option>
@@ -85,14 +103,20 @@
                 <option value="actor_critic">Actor–Critic</option>
                 <option value="ppo">Proximal Policy Optimization (PPO)</option>
               </optgroup>
+              <optgroup id="fleet-methods" label="Two learning robots" hidden disabled>
+                <option value="ippo">Independent PPO (IPPO)</option>
+                <option value="mappo">Multi-agent PPO (MAPPO)</option>
+              </optgroup>
             </select></label>
-            <label><span><i data-icon="forklift"></i>Traffic</span><select id="traffic"><option value="none">No traffic</option><option value="patrol" selected>Forklift patrol</option></select></label>
+            <label id="traffic-setting"><span><i data-icon="forklift"></i>Traffic</span><select id="traffic"><option value="none">No traffic</option><option value="patrol" selected>Forklift patrol</option></select></label>
             <label><span><i data-icon="flag"></i>Mission</span><select id="mission"><option value="return">Deliver and return home</option><option value="deliver">Deliver only</option></select></label>
             <label><span><i data-icon="stack"></i>Episodes</span><input id="episodes" type="number" min="25" max="3000" step="1" value="1500" required></label>
             <label><span><i data-icon="hash"></i>Random seed</span><input id="seed" type="number" min="0" max="4294967295" step="1" value="42" required></label>
             <label><span><i data-icon="scale"></i>Reward profile</span><select id="profile"><option value="balanced">Operational</option><option value="efficiency">Time + energy</option><option value="sparse">Delivery + failure</option></select></label>
             <label><span><i data-icon="exposure"></i>Exposure cost / tick</span><input id="exposure" type="number" min="0" max="20" step="0.05" value="0.15" required></label>
           </fieldset>
+          <p id="environment-note" class="hint" hidden></p>
+          <p id="training-start-note" class="hint" hidden></p>
           <p id="profile-note" class="hint">Scores delivery, time, energy, forklift clearance, blocked moves, and failure.</p>
           <details id="advanced-settings" class="advanced-settings" hidden>
             <summary><i data-icon="sliders"></i>Advanced hyperparameters</summary>
@@ -104,6 +128,14 @@
             </fieldset>
           </details>
           <p id="paused-note" class="hint" hidden>Changes apply when you start a new run. Resuming uses the original settings.</p>
+          <label id="evaluation-floor-setting" hidden>Evaluation floor<select id="evaluation-floor"></select></label>
+          <div id="fleet-replay-settings" hidden>
+            <label>Replay scenario<select id="fleet-case"></select></label>
+            <label>Frozen policy behavior<select id="fleet-policy-mode">
+              <option value="sampled">Sample actions</option>
+              <option value="greedy">Choose highest-probability action</option>
+            </select></label>
+          </div>
           <div class="run-actions">
             <button class="primary" id="start" type="submit" disabled><i data-icon="play"></i><span data-label>Start training</span></button>
             <button id="pause" type="button" disabled><i data-icon="pause"></i><span data-label>Pause training</span></button>
@@ -122,6 +154,19 @@
         </div>
         <div class="floor-content">
           <div class="floor">
+            <div class="preview-settings">
+              <label id="preview-floor-setting" hidden>Preview floor<select id="preview-floor"></select></label>
+              <label id="aisle-preview-setting" hidden>Shared aisle preview<select id="aisle-preview">
+                <option value="carton">Carton order route</option>
+                <option value="same_cell">Same-cell request</option>
+                <option value="swap">Head-on swap</option>
+                <option value="occupied">Occupied aisle cell</option>
+              </select></label>
+              <label id="charge-preview-setting" hidden>Preview starting charge<select id="charge-preview">
+                <option value="low">Low charge</option>
+                <option value="full">Full charge</option>
+              </select></label>
+            </div>
             <canvas id="map" width="500" height="500" role="img" aria-label="Warehouse floor plan"></canvas>
             <div class="playback">
               <button id="play" type="button" disabled><i data-icon="play"></i><span data-label>Play trace</span></button>
@@ -143,6 +188,20 @@
               <div><dt><i data-icon="blocked"></i>Blocked</dt><dd data-term="Blocked">—</dd></div>
               <div><dt><i data-icon="failure"></i>Failure</dt><dd data-term="Failure">—</dd></div>
             </dl>
+            <p id="order-status" class="hint" hidden></p>
+            <p id="battery-status" class="hint" hidden></p>
+            <p id="aisle-status" class="hint" hidden></p>
+            <p id="fleet-first-status" class="hint" hidden></p>
+            <p id="fleet-second-status" class="hint" hidden></p>
+            <section id="shift-panel" aria-label="Fulfillment shift" hidden>
+              <p id="shift-orders"></p>
+              <p id="shift-packing"></p>
+              <p id="shift-stock"></p>
+              <details>
+                <summary>Released orders</summary>
+                <ol id="shift-order-list"></ol>
+              </details>
+            </section>
           </div>
         </div>
         <details class="floor-legend">
@@ -150,7 +209,9 @@
           <ul aria-labelledby="map-key-heading">
             <li><canvas data-map-key="loaded" width="60" height="60" aria-hidden="true"></canvas>Loaded robot</li>
             <li><canvas data-map-key="unloaded" width="60" height="60" aria-hidden="true"></canvas>Empty robot</li>
-            <li><canvas data-map-key="forklift" width="60" height="60" aria-hidden="true"></canvas>Forklift</li>
+            <li id="forklift-map-key"><canvas data-map-key="forklift" width="60" height="60" aria-hidden="true"></canvas>Forklift</li>
+            <li id="scripted-robot-key" hidden><i class="second-amr-key" aria-hidden="true"></i>Replenishment AMR</li>
+            <li id="second-robot-key" hidden><i class="second-amr-key" aria-hidden="true"></i>AMR 2</li>
             <li><canvas data-map-key="parcel" width="60" height="60" aria-hidden="true"></canvas>Parcel</li>
             <li><canvas data-map-key="home" width="60" height="60" aria-hidden="true"></canvas>Home base</li>
             <li><canvas data-map-key="dock" width="60" height="60" aria-hidden="true"></canvas>Delivery dock</li>
@@ -199,6 +260,15 @@
             <div><dt><i data-icon="steps"></i>Steps</dt><dd id="steps">—</dd></div>
             <div><dt><i data-icon="bolt"></i>Energy used</dt><dd id="energy">—</dd></div>
             <div><dt><i data-icon="exposure"></i>Exposure ticks</dt><dd id="exposures">—</dd></div>
+            <div id="primary-denial-metric" hidden><dt>Order AMR denials</dt><dd id="primary-denials">—</dd></div>
+            <div id="scripted-denial-metric" hidden><dt>Replenishment AMR denials</dt><dd id="scripted-denials">—</dd></div>
+            <div id="stall-metric" hidden><dt>Stall ticks</dt><dd id="stall-ticks">—</dd></div>
+            <div id="fleet-orders-metric" hidden><dt>Staged orders</dt><dd id="fleet-orders">—</dd></div>
+            <div id="fleet-waits-metric" hidden><dt>Stationary ticks per AMR</dt><dd id="fleet-waits">—</dd></div>
+            <div id="fleet-denials-metric" hidden><dt>Denied moves per AMR</dt><dd id="fleet-denials">—</dd></div>
+            <div id="shift-throughput-metric" hidden><dt>Orders per 100 ticks</dt><dd id="shift-throughput">—</dd></div>
+            <div id="shift-queue-metric" hidden><dt>Order queue ticks</dt><dd id="shift-queue">—</dd></div>
+            <div id="shift-backlog-metric" hidden><dt>End backlog</dt><dd id="shift-backlog">—</dd></div>
           </dl>
       </section>
     </div>
@@ -245,7 +315,7 @@
         <span class="monitor-summary"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use></use></svg><span data-label></span></span>
       </button>
     </template>
-    <footer>10 × 10 warehouse · One parcel · Four directions + wait</footer>
+    <footer>10 × 10 warehouse · Four directions + wait</footer>
   </main>
 </body>
 </html>

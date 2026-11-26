@@ -11,7 +11,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     for filename in ("styles.css", "dashboard.js", "episode-grid.js", "warehouse-map.js"):
         copyfile(PROJECT_ROOT / "web" / filename, output / filename)
-    for filename in ("agents.py", "warehouse.py", "dashboard_api.py"):
+    for filename in ("agents.py", "warehouse.py", "fleet.py", "fulfillment.py", "dashboard_api.py"):
         copyfile(PROJECT_ROOT / filename, output / filename)
     for filename in ("browser-api.js", "training-worker.mjs", "site_bridge.py"):
         copyfile(PROJECT_ROOT / "web" / "hosted" / filename, output / filename)

@@ -80,6 +80,8 @@ The dashboard plots each episode’s operational return, a rolling mean of up to
 
 The reference animation comes from a breadth-first search through position, patrol phase and mission stage. It excludes collisions and timeouts and returns the minimum feasible time for the replayed phase. The dashboard’s CSV records the configuration and per-episode metrics underlying the training views. The project’s Python evaluation interface provides the phase-level results used in the report tables.
 
+These navigation controls and reference rules apply to V0, the environment used for the primary study. The dashboard also offers the V1–V7 pilots in Appendix C. Their previews show pick bays, charging and packing stations, alternate floors, shared aisles, two learning robots, and continuous order fulfillment where applicable. The [warehouse phase log](../research/Warehouse_Phase_Log.md) records each pilot’s learner, evaluation conditions, and reference policy.
+
 ## 4.2 From events to training rewards
 
 Every profile awards 100 for completion and deducts 100 for collision or timeout. The efficiency profile also deducts time and energy costs. The operational profile adds a blocked-action cost and allows the user to set the exposure weight w. The logged return is the sum of rewards over the episode. The learning algorithms can discount later rewards, so the learner’s objective and the displayed return need separate interpretation.
@@ -254,7 +256,7 @@ A local browser smoke check exercised Q-learning and PPO training and frozen rep
 
 ## 7.3 Threats to interpretation
 
-The Q-learning reward experiments group time and energy as implemented by the efficiency profile. A follow-up that changes one cost at a time could separate their effects. The blocked-action penalty cannot act on a masked policy. The DQN ablation toggles whether invalid actions are available, while a separate test with blocked commands available would be needed to measure the blocked-action penalty itself. Equal episode budgets can also give different interaction budgets. A transition-matched run, with separately reported runtime, could test sample efficiency more directly.
+The primary Q-learning reward experiments group time and energy in the efficiency profile. A [follow-up on revision `f05a308`](../research/Warehouse_Reward_Design_Research.md#round-trip-reward-experiments-november-20-2026) varied the two costs separately at two bundles of learner settings. At the report's baseline settings, the time cost shortened trips and the energy cost reduced energy use. At the tuned dashboard settings, the sparse reward already matched all 40 reference times in that seed set. These results depend on the learner settings and the fixed floor and patrol. The blocked-action penalty cannot act on a masked policy. The DQN ablation toggles whether invalid actions are available, while a separate test with blocked commands available would be needed to measure the blocked-action penalty itself. Equal episode budgets can also give different interaction budgets. A transition-matched run, with separately reported runtime, could test sample efficiency more directly.
 
 Aggregate outcomes are descriptive across trained seeds and deterministic start phases. The same eight phases may appear in training. Exposure counts adjacent ticks and can fall when a policy fails early or stays away from the crossing. Reporting it alongside completion and failure types reduces that ambiguity. Static route knowledge favours the structured baseline, while the short horizon and explicit phase observation simplify the problem for tabular methods. A physical warehouse would require a validated environment and a different safety evaluation.
 
@@ -365,6 +367,8 @@ Table: Table 11. Experiment milestones and the evidence each contributes.
 | DQN reward guidance | 3 seeds, 4 mask and shaping combinations and 1,500 episodes per run | Combined masking and shaping complete 23 of 24 replays. Shaping alone completes eight. |
 
 Regenerate the affected tables and figures if the simulator transitions, reward coefficients or learner defaults change. A revised warehouse layout or patrol needs its own phase-aware reference and evaluation before its metrics are compared.
+
+The following pilots use different workflows and evaluation conditions from the V0 reward study. Their results are preliminary and apply to the configurations recorded in the [warehouse phase log](../research/Warehouse_Phase_Log.md). The dashboard previews and reference replays let viewers inspect the corresponding layouts, actions and operational metrics.
 
 ### Stocked-rack pilot
 
