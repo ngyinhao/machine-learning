@@ -1,6 +1,6 @@
 import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v314.0.8/full/pyodide.mjs";
 
-const sourceFiles = ["agents.py", "warehouse.py", "dashboard_api.py", "site_bridge.py"];
+const sourceFiles = ["agents.py", "warehouse.py", "fleet.py", "fulfillment.py", "dashboard_api.py", "site_bridge.py"];
 let runtime;
 
 async function startTrainingEngine() {

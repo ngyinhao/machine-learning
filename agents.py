@@ -38,8 +38,8 @@ class TabularTD(Agent):
 
     @staticmethod
     def key(state):
-        position, phase, _, returning = state
-        return position, phase, returning
+        position, phase, _, returning, *mission = state
+        return position, phase, returning, *mission
 
     def select(self, state, epsilon, random_source, learn):
         actions = self.valid_actions[state[0]]
@@ -66,30 +66,38 @@ def activate(value):
 
 
 class QNetwork:
-    def __init__(self, width, height, phases, horizon, actions, random_source):
+    def __init__(self, width, height, phases, horizon, actions, random_source, *, feature_count=None):
         hidden = 16
         self.width = width
         self.cells = width * height
         self.phases = phases
         self.horizon = horizon
-        self.inputs = [self._weights(hidden, 0.5, random_source) for _ in range(self.cells + phases + 3)]
+        self.feature_count = feature_count
+        inputs = feature_count if feature_count is not None else self.cells + phases + 3
+        self.inputs = [self._weights(hidden, 0.5, random_source) for _ in range(inputs)]
         self.hidden = [self._weights(hidden + 1, 0.35, random_source) for _ in range(hidden)]
         self.output = [self._weights(hidden + 1, 0.25, random_source) for _ in range(actions)]
-        self.inputs.append(self._weights(hidden, 0.5, random_source))
+        if feature_count is None:
+            self.inputs.append(self._weights(hidden, 0.5, random_source))
 
     @staticmethod
     def _weights(count, scale, random_source):
         return [random_source.uniform(-scale, scale) for _ in range(count)]
 
-    def _forward(self, state):
+    def _active_inputs(self, state):
+        if self.feature_count is not None:
+            return tuple(enumerate(state.features))
         (column, row), phase, remaining, returning = state
-        active_inputs = (
+        return (
             (row * self.width + column, 1.0),
             (self.cells + phase + 1, 1.0),
             (self.cells + self.phases + 1, remaining / self.horizon),
             (self.cells + self.phases + 2, 1.0),
             (self.cells + self.phases + 3, float(returning)),
         )
+
+    def _forward(self, state):
+        active_inputs = self._active_inputs(state)
         first = [
             activate(sum(weight * value for weight, (_, value) in zip(weights, active_inputs)))
             for weights in zip(*(self.inputs[index] for index, _ in active_inputs))
@@ -132,19 +140,28 @@ class QNetwork:
 class DQN(Agent):
     uses_epsilon = True
 
-    def __init__(self, width, height, phases, horizon, actions, gamma, seed):
+    def __init__(self, width, height, phases, horizon, actions, gamma, seed, *, feature_count=None):
         self.random = Random(seed)
-        self.network = QNetwork(width, height, phases, horizon, actions, self.random)
+        self.network = QNetwork(width, height, phases, horizon, actions, self.random, feature_count=feature_count)
         self.target = deepcopy(self.network)
         self.replay = deque(maxlen=5000)
         self.transitions = 0
         self.gamma = gamma
         self.actions = actions
+        self.layout_aware = feature_count is not None
+
+    def allowed(self, state):
+        return state.actions if self.layout_aware else range(self.actions)
 
     def select(self, state, epsilon, random_source, learn):
+        actions = self.allowed(state)
         if random_source.random() < epsilon:
-            return random_source.randrange(self.actions)
-        return greedy(self.network.values(state), random_source)
+            if self.layout_aware and state.guide is not None and random_source.random() < 0.8:
+                return state.guide
+            return random_source.choice(actions)
+        values = self.network.values(state)
+        best = max(values[action] for action in actions)
+        return random_source.choice([action for action in actions if values[action] == best])
 
     def observe(self, state, action, reward, next_state, next_action):
         self.replay.append((state, action, reward / 100.0, next_state))
@@ -153,7 +170,8 @@ class DQN(Agent):
             for sample_state, sample_action, sample_reward, sample_next in self.random.sample(self.replay, 4):
                 target = sample_reward
                 if sample_next is not None:
-                    target += self.gamma * max(self.target.values(sample_next))
+                    values = self.target.values(sample_next)
+                    target += self.gamma * max(values[action] for action in self.allowed(sample_next))
                 self.network.train(sample_state, sample_action, target)
         if self.transitions % 250 == 0:
             self.target = deepcopy(self.network)
@@ -226,6 +244,82 @@ class ActorCritic(SoftmaxPolicy):
         self.critic[key] += 0.2 * error
         self._improve(state, action, self.probabilities(state), 0.25 * self.discount * error)
         self.discount *= self.gamma
+
+
+class FleetPPO:
+    def __init__(self, *, centralized):
+        self.centralized = centralized
+        self.actors = [[2.4, -1.5, -0.8, 0.0, 0.0, 0.0, 0.0] for _ in range(2)]
+        self.critics = [[0.0] * 16] if centralized else [[0.0] * 8 for _ in range(2)]
+
+    @staticmethod
+    def probabilities(weights, observation):
+        logits = [sum(map(mul, weights, features)) for features in observation.action_features]
+        peak = max(logits)
+        probabilities = [exp(logit - peak) for logit in logits]
+        total = sum(probabilities)
+        return [probability / total for probability in probabilities]
+
+    def select(self, observations, random_source):
+        actions = []
+        old_probabilities = []
+        for weights, observation in zip(self.actors, observations):
+            if not observation.action_features:
+                actions.append(observation.actions[0])
+                old_probabilities.append(1.0)
+                continue
+            probabilities = self.probabilities(weights, observation)
+            index = (random_source.choices(range(len(probabilities)), probabilities)[0] if random_source
+                     else max(range(len(probabilities)), key=probabilities.__getitem__))
+            actions.append(observation.actions[index])
+            old_probabilities.append(probabilities[index])
+        return tuple(actions), tuple(old_probabilities)
+
+    def update(self, rollout, random_source):
+        actor_samples = [[], []]
+        critic_samples = [[] for _ in self.critics]
+        for trajectory in rollout:
+            next_values = [0.0] * len(self.critics)
+            advantages = [0.0] * len(self.critics)
+            for observations, actions, previous_probabilities, reward in reversed(trajectory):
+                inputs = tuple(observation.value_features for observation in observations)
+                if self.centralized:
+                    inputs = (inputs[0] + inputs[1],)
+                values = [sum(map(mul, weights, features)) for weights, features in zip(self.critics, inputs)]
+                for index, features in enumerate(inputs):
+                    delta = reward + 0.98 * next_values[index] - values[index]
+                    advantages[index] = delta + 0.98 * 0.95 * advantages[index]
+                    critic_samples[index].append((features, values[index] + advantages[index]))
+                for index, (observation, action, probability) in enumerate(
+                        zip(observations, actions, previous_probabilities)):
+                    if observation.action_features:
+                        advantage = advantages[0 if self.centralized else index]
+                        actor_samples[index].append((observation, observation.actions.index(action), probability, advantage))
+                next_values = values
+        for weights, samples in zip(self.actors, actor_samples):
+            self._update_actor(weights, samples, random_source)
+        for weights, samples in zip(self.critics, critic_samples):
+            for _ in range(3):
+                random_source.shuffle(samples)
+                for features, target in samples:
+                    error = target - sum(map(mul, weights, features))
+                    for index, feature in enumerate(features):
+                        weights[index] += 0.005 * error * feature / len(weights)
+
+    def _update_actor(self, weights, samples, random_source):
+        mean = sum(sample[-1] for sample in samples) / len(samples)
+        deviation = (sum((sample[-1] - mean)**2 for sample in samples) / len(samples) + 1e-8)**0.5
+        for _ in range(3):
+            random_source.shuffle(samples)
+            for observation, action, old_probability, raw_advantage in samples:
+                probabilities = self.probabilities(weights, observation)
+                advantage = (raw_advantage - mean) / deviation
+                ratio = probabilities[action] / old_probability
+                if (advantage > 0 and ratio > 1.2) or (advantage < 0 and ratio < 0.8):
+                    continue
+                for index, features in enumerate(zip(*observation.action_features)):
+                    gradient = features[action] - sum(map(mul, probabilities, features))
+                    weights[index] += 0.002 * ratio * advantage * gradient
 
 
 class ExploreThenCommit(Agent):

@@ -7,6 +7,7 @@ A Python application for training warehouse delivery policies and inspecting how
 - **Assignment and report** — [report draft](assignment/Warehouse_RL_Report_Draft.md). Refer to the course-provided assignment specification, evaluation criteria, and Word template for submission requirements.
 - **Product and dashboard** — [product brief](PRODUCT.md) and [dashboard design](DESIGN.md).
 - **Research and experiments** — [project ideas](research/Reinforcement_Learning_Project_Ideas.md), [warehouse environment and experiment plan](research/Warehouse_Environment_Design.md), [reward-design research](research/Warehouse_Reward_Design_Research.md), [algorithm comparison](research/Warehouse_Algorithm_Comparison.md), and [Part B tuning record](research/Warehouse_Algorithm_Comparison.md#part-b-tuning-record).
+- **Warehouse expansion** — [phase plan, results and review checks](research/Warehouse_Phase_Log.md).
 - **Dashboard verification** — [episode grid timing check](research/Episode_Grid_Timing.md).
 
 ## Hosted dashboard
