@@ -1,5 +1,11 @@
 # Episode Grid Timing Check
 
+## Playback during delayed DQN batches
+
+The dashboard smoke check trains DQN for 65 episodes in groups of 50. It holds the next training request after episode 50 and advances the browser clock beyond a full playback cycle. The recorded maps must keep moving while training remains at episode 50. The check also verifies the grid and training pause controls and confirms that the final group stops at its ending positions.
+
+## Earlier checkpoint-driven playback
+
 On November 18, 2026, two local headless Chrome runs checked whether the episode grid kept pace with training. Each run used Q-learning, seed 42, the operational reward profile, an exposure cost of 2 per tick, and 325 episodes. The grid used the default 100-episode groups with one trace every 10 episodes and up to ten simultaneous maps. The second run enabled forklift patrol and added a 160 ms delay before each 10-episode request to exercise slower training updates.
 
 | Run | First group playback | Finish after the next training checkpoint |

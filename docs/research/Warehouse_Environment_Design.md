@@ -35,6 +35,17 @@ For the first implementation, omit traffic and battery, verify navigation, then 
 
 Validate reset scenarios before using them for agent comparisons: the destination must be reachable and the initial battery must permit at least one feasible delivery plan, including charging only if that extension is present. Label deliberately infeasible stress tests separately from the normal success benchmark.
 
+## Design sequence for the report
+
+Once the environment dynamics, observations, and actions are specified, use this order to explain the design decisions.
+
+1. **Define success and evaluation metrics.** Specify what counts as mission completion. Measure completion, travel time, energy use, forklift exposure, collisions, and timeouts so the report can assess operational outcomes directly.
+2. **Specify an initial reward.** Start with signals for successful completion and failed termination. Add time, energy, and exposure costs to represent the trade-offs the study is intended to test. Record the reason for each term.
+3. **Sanity-check the incentives on example trajectories.** Compare an efficient completed route, a longer route that avoids the forklift, waiting until timeout, and an early collision. Inspect the reward components and both discounted and undiscounted returns to see whether they express the intended trade-offs. Check that completing a feasible long delivery is preferable to waiting out the episode.
+4. **Choose a reference and a learning algorithm.** Use a shortest-feasible-route planner as a reference where its assumptions fit. Consider tabular Q-learning for a small discrete state space and DQN if a larger observation space warrants function approximation.
+
+Describe the objective, reward, and any completed trajectory checks in **Methodology and System Design**. Explain the reference and algorithm choices in **Learner Selection**. Hold the reward and evaluation protocol fixed for learner comparisons, then hold learner settings fixed when comparing reward variants.
+
 ## Reward layers
 
 Separate **the operational objective**, which defines desired behavior, from **learning guidance**, which helps the agent discover it.

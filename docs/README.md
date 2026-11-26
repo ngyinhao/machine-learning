@@ -7,7 +7,7 @@ A research project on how reinforcement learning rewards affect travel time, ene
 - **Research report** — [Markdown source](report/Warehouse_RL_Lab_Report.md) and [Word export](report/Warehouse_RL_Lab_Report_Pandoc.docx).
 - **Product and dashboard** — [product brief](PRODUCT.md) and [dashboard design](DESIGN.md).
 - **Research and experiments** — [project ideas](research/Reinforcement_Learning_Project_Ideas.md), [warehouse environment and experiment plan](research/Warehouse_Environment_Design.md), [reward-design research](research/Warehouse_Reward_Design_Research.md), [algorithm comparison](research/Warehouse_Algorithm_Comparison.md), and [learner tuning record](research/Warehouse_Algorithm_Comparison.md#learner-tuning-record).
-- **Warehouse expansion** — [environment and training roadmap](research/Warehouse_Environment_Roadmap.md).
+- **Warehouse expansion** — [environment and training roadmap](research/Warehouse_Environment_Roadmap.md) and [phase implementation, results and review checks](research/Warehouse_Phase_Log.md).
 - **Dashboard verification** — [episode grid timing check](research/Episode_Grid_Timing.md).
 
 ## Export the report
@@ -22,7 +22,7 @@ The command generates `docs/report/Warehouse_RL_Lab_Report_Pandoc.docx`. In Word
 
 ## Hosted dashboard
 
-Open the private [Warehouse RL Lab on ChatGPT Sites](https://warehouse-rl-lab.teamngnew-6178.chatgpt.site) and sign in with the owner's ChatGPT account. The same Python training engine runs in a browser worker. Each tab has its own training run. Download the CSV before closing or reloading the tab.
+Open [Warehouse RL Lab on ChatGPT Sites](https://warehouse-rl-lab.teamngnew-6178.chatgpt.site). The same Python training engine runs in a browser worker. Each tab has its own training run. Download the CSV before closing or reloading the tab.
 
 Run `python scripts/build_hosted_dashboard.py` to build the assets into `sites/warehouse-rl-lab/dist`. The hosted URL serves the published version until a new version is deployed.
 
@@ -52,13 +52,13 @@ python scripts/check_dashboard.py
 python scripts/check_dashboard.py --hosted
 ```
 
-Each check starts a separate server on a free port, trains Q-learning and PPO for 25 episodes each, and replays both trained policies. It also checks that the episode grid keeps playing during a delayed DQN batch. It shuts down its server when finished. On Windows with Microsoft Edge installed, add `--channel msedge` to both checks and skip the Chromium download.
+Each check starts a separate server on a free port and exercises warehouse environments V0 through V7. The navigation checks include Q-learning and PPO training and replay, and the episode grid during a delayed DQN batch. The checks shut down their servers when finished. On Windows with Microsoft Edge installed, add `--channel msedge` to both checks and skip the Chromium download.
 
 Push feature branches and open pull requests to `main`. GitHub Actions runs the `Dashboard smoke` job on those pull requests. The branch protection rule requires that check to pass on an up-to-date branch before merging, including for repository admins.
 
 ## Release the hosted dashboard
 
-When a dashboard change is merged to GitHub `main`, publish it to the existing private Warehouse RL Lab Site as part of the same release. GitHub Actions runs the smoke checks. Publication goes through ChatGPT Sites.
+When a dashboard change is merged to GitHub `main`, publish it to the existing Warehouse RL Lab Site as part of the same release. GitHub Actions runs the smoke checks. Publication goes through ChatGPT Sites.
 
 1. Fetch the merged `main` revision and check it out in a clean worktree. Record its commit SHA, then run `python scripts/build_hosted_dashboard.py` from that checkout.
 2. Use the generated `sites/warehouse-rl-lab/dist` assets to update the existing Site's source repository. Save and deploy that version through ChatGPT Sites with the existing access settings.
@@ -66,7 +66,7 @@ When a dashboard change is merged to GitHub `main`, publish it to the existing p
 
 ## Watch a training run
 
-1. Play the shortest-path preview to inspect the static warehouse before training.
+1. Select an **Environment** from V0 to V7 and play its route or dispatch preview. In **V4 · Multiple layouts**, use **Preview floor** to compare the Original, Parallel aisles, and Offset cross-aisle maps.
 2. Choose an algorithm, mission, traffic scenario, and reward profile. The default configuration trains Q-learning to deliver to the dock and return home under the forklift patrol. Start training to see sampled episodes and the learning curve.
 3. Pause training to inspect a checkpoint. Play or scrub the route trace to see per-step reward terms. **Show latest** loads the most recent recorded training trace. **Replay trained policy** evaluates one frozen-policy episode for each forklift starting phase, or one episode on the static floor, and plays a representative trace. **Play fastest route** animates the minimum-time collision-free reference for the replayed phase.
 4. Open **View episode grid** to watch up to ten recorded training episodes together. By default, it samples every 10 episodes and shows a new group every 100. The grid plays the latest recorded group over roughly the time it took to train and repeats it if the next group is still training. The final group plays once. Use **Pause grid** to hold a view, or select a map to inspect and scrub its original trace. **Grid settings** apply when starting a new run.
