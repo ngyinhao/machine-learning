@@ -1,13 +1,24 @@
 # Warehouse RL Lab
 
-A Python application for training warehouse delivery policies and inspecting how rewards guide their behaviour.
+A research project on how reinforcement learning rewards affect travel time, energy use, and forklift exposure in simulated warehouse deliveries. The dashboard visualizes training outcomes and route decisions.
 
 ## Documentation
 
-- **Assignment and report** — [report draft](assignment/Warehouse_RL_Report_Draft.md). Refer to the course-provided assignment specification, evaluation criteria, and Word template for submission requirements.
+- **Research report** — [Markdown source](report/Warehouse_RL_Lab_Report.md) and [Word export](report/Warehouse_RL_Lab_Report_Pandoc.docx).
 - **Product and dashboard** — [product brief](PRODUCT.md) and [dashboard design](DESIGN.md).
-- **Research and experiments** — [project ideas](research/Reinforcement_Learning_Project_Ideas.md), [warehouse environment and experiment plan](research/Warehouse_Environment_Design.md), [reward-design research](research/Warehouse_Reward_Design_Research.md), [algorithm comparison](research/Warehouse_Algorithm_Comparison.md), and [Part B tuning record](research/Warehouse_Algorithm_Comparison.md#part-b-tuning-record).
+- **Research and experiments** — [project ideas](research/Reinforcement_Learning_Project_Ideas.md), [warehouse environment and experiment plan](research/Warehouse_Environment_Design.md), [reward-design research](research/Warehouse_Reward_Design_Research.md), [algorithm comparison](research/Warehouse_Algorithm_Comparison.md), and [learner tuning record](research/Warehouse_Algorithm_Comparison.md#learner-tuning-record).
+- **Warehouse expansion** — [environment and training roadmap](research/Warehouse_Environment_Roadmap.md).
 - **Dashboard verification** — [episode grid timing check](research/Episode_Grid_Timing.md).
+
+## Export the report
+
+Edit `docs/report/Warehouse_RL_Lab_Report.md` and keep its linked figures in `docs/report/figures/`. Pandoc uses `docs/report/Warehouse_RL_Report_Reference.docx` for Word formatting. With Pandoc on `PATH`, run this from the repository root.
+
+```sh
+pandoc --defaults=docs/report/pandoc-report.yaml
+```
+
+The command generates `docs/report/Warehouse_RL_Lab_Report_Pandoc.docx`. In Word, refresh the table of contents after rebuilding to update page numbers.
 
 ## Hosted dashboard
 
@@ -44,6 +55,14 @@ python scripts/check_dashboard.py --hosted
 Each check starts a separate server on a free port, trains Q-learning and PPO for 25 episodes each, and replays both trained policies. It also checks that the episode grid keeps playing during a delayed DQN batch. It shuts down its server when finished. On Windows with Microsoft Edge installed, add `--channel msedge` to both checks and skip the Chromium download.
 
 Push feature branches and open pull requests to `main`. GitHub Actions runs the `Dashboard smoke` job on those pull requests. The branch protection rule requires that check to pass on an up-to-date branch before merging, including for repository admins.
+
+## Release the hosted dashboard
+
+When a dashboard change is merged to GitHub `main`, publish it to the existing private Warehouse RL Lab Site as part of the same release. GitHub Actions runs the smoke checks. Publication goes through ChatGPT Sites.
+
+1. Fetch the merged `main` revision and check it out in a clean worktree. Record its commit SHA, then run `python scripts/build_hosted_dashboard.py` from that checkout.
+2. Use the generated `sites/warehouse-rl-lab/dist` assets to update the existing Site's source repository. Save and deploy that version through ChatGPT Sites with the existing access settings.
+3. Verify that the deployment succeeded. Record the GitHub commit, the live Site version, and the URL in the release handoff.
 
 ## Watch a training run
 

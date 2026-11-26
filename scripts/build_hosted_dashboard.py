@@ -9,7 +9,7 @@ SITE_ROOT = PROJECT_ROOT / "sites" / "warehouse-rl-lab"
 def main():
     output = SITE_ROOT / "dist"
     output.mkdir(parents=True, exist_ok=True)
-    for filename in ("styles.css", "dashboard.js", "episode-grid.js"):
+    for filename in ("styles.css", "dashboard.js", "episode-grid.js", "warehouse-map.js"):
         copyfile(PROJECT_ROOT / "web" / filename, output / filename)
     for filename in ("agents.py", "warehouse.py", "dashboard_api.py"):
         copyfile(PROJECT_ROOT / filename, output / filename)

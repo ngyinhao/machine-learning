@@ -74,7 +74,7 @@ def check_browser(url, channel):
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel=channel)
         try:
-            page = browser.new_page(reduced_motion="reduce")
+            page = browser.new_page(viewport={"width": 1536, "height": 900}, reduced_motion="reduce")
             page.set_default_timeout(5000)
             errors = []
 
@@ -88,7 +88,25 @@ def check_browser(url, channel):
             try:
                 page.goto(url)
                 expect(page.locator("#status")).to_have_text("Ready", timeout=25000)
+                floor = page.locator(".floor").bounding_box()
+                inspector = page.locator(".floor-inspector").bounding_box()
+                assert floor and inspector, "Expected the warehouse floor and transition inspector"
+                assert inspector["y"] >= floor["y"] + floor["height"], "Expected the inspector below the warehouse floor"
+                legend = page.locator(".floor-panel > .floor-content + .floor-legend")
+                map_key = legend.locator("summary")
+                expect(map_key).to_be_visible()
+                expect(legend.locator("ul")).to_be_hidden()
+                map_key.press("Enter")
+                expect(legend.locator("ul")).to_be_visible()
+                map_key.press("Space")
+                expect(legend.locator("ul")).to_be_hidden()
+                scrubber = page.get_by_role("slider", name="Trace tick")
+                scrubber.press("End")
+                expect(page.locator("#event")).to_contain_text("Returned to base")
+                expect(page.locator("#map")).to_have_attribute("aria-label", re.compile(r"Parcel at the dock"))
+                expect(page.locator("#reward-terms [data-term='Delivery']")).to_have_text("+100")
                 expect(page.locator('#algorithm optgroup[label="Hybrid"] option[value="ppo"]')).to_have_count(1)
+                selected = page.get_by_role("button", name=re.compile(r"^Inspect Episode 10,"))
                 for algorithm in ("q_learning", "ppo"):
                     page.locator("#algorithm").select_option(algorithm)
                     page.locator("#episodes").fill("25")
@@ -99,12 +117,18 @@ def check_browser(url, channel):
                     expect(page.locator("#monitor-range")).to_have_text("Viewing episodes 1–25")
                     expect(page.locator(".monitor-card strong")).to_have_text(["Episode 10", "Episode 20", "Episode 25"])
                     expect(page.locator("#monitor-progress")).to_have_attribute("value", "1")
-                    page.get_by_role("button", name=re.compile(r"^Inspect Episode 10,")).click()
+                    selected.click()
+                    expect(selected).to_have_attribute("aria-pressed", "true")
                     expect(page.locator("#trace-title")).to_contain_text("Training episode 10")
                     page.locator("#replay").click()
                     expect(page.locator("#policy-evaluation")).to_be_visible()
-                    expect(page.locator("#reference")).to_be_visible()
+                    expect(selected).to_have_attribute("aria-pressed", "false")
+                    page.locator("#reference").click()
+                    expect(page.locator("#trace-title")).to_contain_text("Fastest collision-free route")
                     expect(page.locator("#error")).to_be_hidden()
+                map_key.click()
+                expect(page.locator("#map-key-reference")).to_be_visible()
+                map_key.click()
                 page.emulate_media(reduced_motion="no-preference")
                 check_grid_playback(page)
             finally:

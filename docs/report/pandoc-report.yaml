@@ -1,0 +1,12 @@
+from: markdown
+to: docx
+input-files:
+  - ${.}/Warehouse_RL_Lab_Report.md
+output-file: ${.}/Warehouse_RL_Lab_Report_Pandoc.docx
+reference-doc: ${.}/Warehouse_RL_Report_Reference.docx
+resource-path:
+  - ${.}
+table-of-contents: true
+toc-depth: 1
+metadata:
+  toc-title: Contents

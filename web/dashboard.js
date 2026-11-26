@@ -8,29 +8,25 @@ const hyperparameterSettings = byId("hyperparameter-settings");
 const hyperparameterEdits = new Map();
 const map = byId("map");
 const mapContext = map.getContext("2d");
-const floorLayer = document.createElement("canvas");
 const chart = byId("chart");
 const scrub = byId("scrub");
 const play = byId("play");
 const eventReadout = document.querySelector(".event-readout");
 const motion = matchMedia("(prefers-reduced-motion: reduce)");
-const mapSize = 500;
-const cellSize = 44;
-const mapInset = 30;
-const mapLime = "#e5f787";
-const mapOrange = "#ffac73";
 const feedbackDuration = 440;
 const history = [];
 const averages = [];
 const outcomeLabels = { delivered: "Delivered", returned: "Returned to base", collision: "Collision", timeout: "Step limit" };
+const outcomeIcons = { delivered: "parcel-check", returned: "home-check", collision: "failure", timeout: "clock" };
 const completed = (result) => result?.outcome === "delivered" || result?.outcome === "returned";
-const gridHeadings = new WeakMap();
 const episodeGrid = new EpisodeGrid({
-  paint: paintGridTrace,
+  paint: (context, frames, position) => warehouseMap.draw(context, frames, position, "episode", true),
   inspect: inspectGridTrace,
+  setLabel: setLabeledIcon,
   describe: (episode) => ({
     title: `Episode ${number(episode.episode, 0)}`,
     summary: `${outcomeLabels[episode.outcome]} · Return ${signed(episode.reward)}`,
+    icon: outcomeIcons[episode.outcome],
   }),
   motion,
 });
@@ -46,6 +42,7 @@ const profileDescriptions = {
   sparse: "Scores delivery and failure. Operating costs and exposure are still measured.",
 };
 let world;
+let warehouseMap;
 let hyperparameterSchema;
 let runId;
 let runConfig;
@@ -55,8 +52,7 @@ let status = "Loading";
 let pending = false;
 let trainingTimer;
 let trace = [];
-let robotHeadings = [];
-let forkliftHeadings = [];
+let traceMode = "episode";
 let queuedTrace = null;
 let latestTrace = null;
 let following = false;
@@ -76,8 +72,32 @@ function signed(value) {
   return value === 0 ? "0" : `${value > 0 ? "+" : ""}${number(value, 3)}`;
 }
 
+function icon(name) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const use = document.createElementNS(svg.namespaceURI, "use");
+  svg.classList.add("ui-icon");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  use.setAttribute("href", `#icon-${name}`);
+  svg.append(use);
+  return svg;
+}
+
+function setLabeledIcon(container, label, name) {
+  const text = container.querySelector("[data-label]");
+  const symbol = container.querySelector("use");
+  if (text.textContent !== label) text.textContent = label;
+  const href = name ? `#icon-${name}` : "";
+  if (symbol.getAttribute("href") !== href) symbol.setAttribute("href", href);
+  symbol.parentElement.classList.toggle("is-hidden", !name);
+}
+
+for (const placeholder of document.querySelectorAll("[data-icon]")) {
+  placeholder.replaceWith(icon(placeholder.dataset.icon));
+}
+
 function showError(message) {
-  byId("error").textContent = message;
+  byId("error").querySelector("[data-label]").textContent = message;
   byId("error").hidden = !message;
 }
 
@@ -138,243 +158,34 @@ function refreshControls() {
   byId("paused-note").hidden = !paused;
   byId("exposure").disabled = byId("profile").value !== "balanced";
   byId("start").disabled = !world || pending || running;
-  byId("start").textContent = runId ? "Start new run" : "Start training";
+  setLabeledIcon(byId("start"), runId ? "Start new run" : "Start training", "play");
   byId("pause").disabled = (!running && !paused) || (paused && pending);
-  byId("pause").textContent = paused ? "Resume training" : "Pause training";
+  setLabeledIcon(byId("pause"), paused ? "Resume training" : "Pause training", paused ? "play" : "pause");
   byId("replay").disabled = pending || running || !history.length;
   byId("export").disabled = !history.length;
   byId("follow").disabled = !latestTrace;
   const tone = running ? "active" : status === "Complete" ? "success" : "";
+  const statusIcon = ({ Training: "dot", Starting: "dot", Paused: "pause",
+    Complete: "check", Disconnected: "alert", Loading: "clock" })[status];
   for (const id of ["status", "curve-status"]) {
-    byId(id).textContent = status;
+    setLabeledIcon(byId(id), status, statusIcon);
     byId(id).dataset.tone = tone;
   }
   const emptyMessage = emptyChartMessages[status === "Starting" ? "Training" : status];
   if (!history.length && emptyMessage) {
     const [title, note] = emptyMessage;
     const heading = byId("chart-empty-heading");
-    if (heading.textContent !== title) {
-      heading.textContent = title;
+    if (heading.querySelector("[data-label]").textContent !== title) {
+      setLabeledIcon(heading, title, statusIcon ?? "chart");
       byId("chart-empty-note").textContent = note;
     }
     byId("chart-setup-link").hidden = status !== "Ready" && !paused;
   }
 }
 
-function cellCenter(point) {
-  return point.map((coordinate) => mapInset + (coordinate + 0.5) * cellSize);
-}
-
-function buildFloorLayer() {
-  if (!world) return;
-  const size = Math.max(1, Math.round(map.getBoundingClientRect().width * Math.min(devicePixelRatio || 1, 2)));
-  map.width = map.height = floorLayer.width = floorLayer.height = size;
-  const scale = size / mapSize;
-  mapContext.setTransform(scale, 0, 0, scale, 0, 0);
-  const context = floorLayer.getContext("2d");
-  context.setTransform(scale, 0, 0, scale, 0, 0);
-  context.fillStyle = "#19241f";
-  context.fillRect(0, 0, mapSize, mapSize);
-  context.font = "650 11px ui-monospace, monospace";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillStyle = "#b0c2b3";
-  for (const row of world.layout.keys()) {
-    const [horizontal, vertical] = cellCenter([row, row]);
-    context.fillText(String.fromCharCode(65 + row), horizontal, 16);
-    context.fillText(String(row + 1).padStart(2, "0"), 15, vertical);
-  }
-  for (const [row, cells] of world.layout.entries()) {
-    for (const [column, marker] of [...cells].entries()) {
-      const left = mapInset + column * cellSize;
-      const top = mapInset + row * cellSize;
-      const wall = marker === "#" && (row === 0 || row === world.layout.length - 1 || column === 0 || column === cells.length - 1);
-      context.fillStyle = wall ? "#23312a" : row === 5 ? "#34453b" : "#2b3a32";
-      context.fillRect(left + 0.5, top + 0.5, cellSize - 1, cellSize - 1);
-      if (wall) {
-        context.strokeStyle = "#3b4c41";
-        context.beginPath();
-        for (const offset of [0, 10, 20]) {
-          context.moveTo(left + 8 + offset, top + 32);
-          context.lineTo(left + 16 + offset, top + 12);
-        }
-        context.stroke();
-      } else if (marker === "#") {
-        context.fillStyle = "#1e2b24";
-        context.fillRect(left + 5, top + 8, 36, 34);
-        context.fillStyle = "#6f8575";
-        context.fillRect(left + 4, top + 5, 36, 33);
-        for (const offset of [9, 24]) {
-          context.fillStyle = "#43584c";
-          context.fillRect(left + 8, top + offset, 28, 10);
-          context.fillStyle = "#97a68a";
-          context.fillRect(left + 10, top + offset + 2, 9, 6);
-          context.fillRect(left + 21, top + offset + 2, 12, 6);
-        }
-      }
-      if (marker === "S" || marker === "D") {
-        const dock = marker === "D";
-        context.fillStyle = dock ? "#46573a" : "#3c5145";
-        context.fillRect(left + 3, top + 3, cellSize - 6, cellSize - 6);
-        context.strokeStyle = dock ? "#b5cc78" : "#88a398";
-        context.lineWidth = 2;
-        context.strokeRect(left + 3, top + 3, cellSize - 6, cellSize - 6);
-        context.fillStyle = dock ? mapLime : "#d4e3d8";
-        context.font = "650 9px ui-monospace, monospace";
-        context.fillText(dock ? "DOCK" : "START", left + cellSize / 2, top + 37);
-      }
-    }
-  }
-  context.strokeStyle = "#5c7061";
-  context.lineWidth = 1;
-  context.strokeRect(mapInset - 0.5, mapInset - 0.5, cellSize * world.layout[0].length + 1, cellSize * world.layout.length + 1);
-}
-
-function traceHeadings(frames, vehicle) {
-  let angle = 0;
-  return frames.map((frame, index) => {
-    const before = frames[index - 1]?.[vehicle];
-    const after = frame[vehicle];
-    if (before && after && (before[0] !== after[0] || before[1] !== after[1])) {
-      angle = Math.atan2(after[1] - before[1], after[0] - before[0]);
-    }
-    return angle;
-  });
-}
-
-function vehiclePose(frames, targetTick, fraction, vehicle, headings) {
-  const previousTick = Math.max(0, targetTick - 1);
-  const destination = frames[targetTick][vehicle];
-  const origin = frames[previousTick][vehicle] || destination;
-  const position = cellCenter(destination.map((coordinate, axis) => origin[axis] + (coordinate - origin[axis]) * fraction));
-  const turn = headings[targetTick] - headings[previousTick];
-  const angle = headings[previousTick] + Math.atan2(Math.sin(turn), Math.cos(turn)) * fraction;
-  return { position, angle };
-}
-
-function drawForklift(context, pose) {
-  context.save();
-  context.translate(...pose.position);
-  context.rotate(pose.angle);
-  context.fillStyle = "#141e19";
-  context.fillRect(-12, -11, 19, 22);
-  context.fillStyle = mapOrange;
-  context.fillRect(-12, -8, 21, 16);
-  context.fillRect(9, -7, 9, 3);
-  context.fillRect(9, 4, 9, 3);
-  context.fillStyle = "#503323";
-  context.fillRect(-5, -5, 8, 10);
-  context.fillRect(6, -10, 3, 20);
-  context.restore();
-}
-
-function drawRobot(context, pose, carryingParcel, arrived) {
-  context.save();
-  context.translate(...pose.position);
-  context.rotate(pose.angle);
-  context.fillStyle = "#131f18";
-  context.beginPath();
-  context.roundRect(-14, -12, 29, 26, 6);
-  context.fill();
-  context.fillStyle = mapLime;
-  context.beginPath();
-  context.roundRect(-12, -10, 25, 20, [4, 7, 7, 4]);
-  context.fill();
-  context.fillStyle = "#3b512e";
-  context.fillRect(8, -5, 2, 10);
-  if (arrived) {
-    context.rotate(-pose.angle);
-    context.beginPath();
-    context.moveTo(-6, 0);
-    context.lineTo(-2, 4);
-    context.lineTo(4, -4);
-    context.strokeStyle = "#3b512e";
-    context.lineWidth = 2;
-    context.stroke();
-  } else if (carryingParcel) {
-    context.fillStyle = "#536b3a";
-    context.fillRect(-8, -5, 11, 10);
-    context.fillStyle = "#bfce71";
-    context.fillRect(-4, -5, 2, 10);
-  }
-  context.restore();
-}
-
 function paintMap(targetTick, fraction = 1, feedbackProgress = 1) {
-  if (!world || !trace.length) return;
-  paintTrace(mapContext, trace, robotHeadings, forkliftHeadings, targetTick, fraction, feedbackProgress);
-}
-
-function paintGridTrace(context, frames, position) {
-  if (!gridHeadings.has(frames)) {
-    gridHeadings.set(frames, { robot: traceHeadings(frames, "robot"), forklift: traceHeadings(frames, "forklift") });
-  }
-  const headings = gridHeadings.get(frames);
-  const scale = context.canvas.width / mapSize;
-  context.setTransform(scale, 0, 0, scale, 0, 0);
-  const targetTick = Math.ceil(position);
-  const fraction = position % 1 || 1;
-  paintTrace(context, frames, headings.robot, headings.forklift, targetTick, fraction);
-}
-
-function paintTrace(context, frames, robotDirections, forkliftDirections, targetTick, fraction, feedbackProgress = 1) {
-  const frame = frames[fraction === 1 ? targetTick : Math.max(0, targetTick - 1)];
-  const robot = vehiclePose(frames, targetTick, fraction, "robot", robotDirections);
-  const forklift = frames[targetTick].forklift && vehiclePose(frames, targetTick, fraction, "forklift", forkliftDirections);
-  context.drawImage(floorLayer, 0, 0, mapSize, mapSize);
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  if (forklift) {
-    context.beginPath();
-    context.moveTo(...cellCenter(world.patrol[0]));
-    for (const point of world.patrol.slice(1)) context.lineTo(...cellCenter(point));
-    context.closePath();
-    context.setLineDash([3, 6]);
-    context.strokeStyle = "#cc946e";
-    context.lineWidth = 2;
-    context.stroke();
-    context.setLineDash([]);
-  }
-  if (frames === world.demo || frames === world.round_trip_demo) {
-    context.beginPath();
-    context.moveTo(...robot.position);
-    for (let index = targetTick; index < frames.length; index += 1) context.lineTo(...cellCenter(frames[index].robot));
-    context.setLineDash([3, 6]);
-    context.strokeStyle = "#a0b26e";
-    context.lineWidth = 2;
-    context.stroke();
-    context.setLineDash([]);
-  }
-  if (targetTick) {
-    context.beginPath();
-    context.moveTo(...cellCenter(frames[0].robot));
-    for (let index = 1; index < targetTick; index += 1) context.lineTo(...cellCenter(frames[index].robot));
-    context.lineTo(...robot.position);
-    context.strokeStyle = "#afc56a";
-    context.lineWidth = 3;
-    context.stroke();
-  }
-  const arrived = completed(frame) || frame.tick === frame.delivery_tick;
-  const collision = frame.outcome === "collision";
-  const [horizontal, vertical] = robot.position;
-  if (arrived || collision || frame.exposure || frame.blocked) {
-    const color = collision ? "#ff8c7c" : arrived ? mapLime : mapOrange;
-    context.strokeStyle = color;
-    context.lineWidth = 1.5;
-    context.beginPath();
-    context.roundRect(horizontal - 19, vertical - 17, 38, 34, 7);
-    context.stroke();
-    if (feedbackProgress < 1) {
-      const radius = 19 + 23 * (1 - (1 - feedbackProgress) ** 3);
-      context.globalAlpha = 0.85 * (1 - feedbackProgress);
-      context.beginPath();
-      context.arc(horizontal, vertical, radius, 0, Math.PI * 2);
-      context.stroke();
-      context.globalAlpha = 1;
-    }
-  }
-  if (forklift) drawForklift(context, forklift);
-  drawRobot(context, robot, frame.delivery_tick == null, arrived);
+  if (!trace.length) return;
+  warehouseMap.draw(mapContext, trace, targetTick - 1 + fraction, traceMode, false, feedbackProgress);
 }
 
 function paintChart() {
@@ -470,8 +281,8 @@ function refreshMetrics() {
   if (count) {
     chart.setAttribute("aria-label", `Returns for ${number(count, 0)} training episodes. Latest episode return ${signed(latest.reward)}. Latest rolling average ${signed(averages.at(-1))}.`);
   }
-  byId("outcome").textContent = count ? outcomeLabels[latest.outcome] : "—";
-  byId("outcome").dataset.tone = completed(latest) ? "success" : latest ? "active" : "";
+  setLabeledIcon(byId("outcome"), count ? outcomeLabels[latest.outcome] : "—", outcomeIcons[latest?.outcome]);
+  byId("outcome").dataset.tone = completed(latest) ? "success" : latest?.outcome === "collision" ? "failure" : latest ? "active" : "";
   byId("steps").textContent = count ? latest.steps : "—";
   byId("energy").textContent = count ? number(latest.energy, 2) : "—";
   byId("exposures").textContent = count ? latest.exposures : "—";
@@ -483,21 +294,33 @@ function describeTick() {
   if (!frame) return;
   byId("tick").textContent = String(frame.tick).padStart(2, "0");
   scrub.value = tick;
+  scrub.setAttribute("aria-valuetext", `Tick ${frame.tick} of ${trace.at(-1).tick}`);
   byId("trace-limit").textContent = `${tick} / ${trace.length - 1}`;
   const droppedOff = frame.outcome === "running" && frame.tick === frame.delivery_tick;
-  const event = [frame.action, frame.blocked && "Blocked move", frame.exposure && "Forklift exposure",
-    droppedOff && "Parcel delivered · return to base",
-    outcomeLabels[frame.outcome]].filter(Boolean).join(" · ");
-  byId("event").textContent = event || "Episode start";
-  eventReadout.dataset.tone = completed(frame) || droppedOff ? "success"
-    : frame.blocked || frame.exposure || frame.outcome === "collision" ? "warning" : "";
+  const action = frame.action === "Wait" ? "Wait" : frame.action ? `Move ${frame.action.toLowerCase()}` : "Episode start";
+  const events = [[action, frame.action === "Wait" ? "pause" : frame.action?.toLowerCase() ?? "play"],
+    [frame.blocked && "Blocked move", "blocked", "warning"],
+    [frame.exposure && "Forklift exposure", "exposure", "warning"],
+    [droppedOff && "Parcel dropped off", "parcel-check", "success"],
+    [outcomeLabels[frame.outcome], outcomeIcons[frame.outcome], completed(frame) ? "success" : "failure"],
+  ].filter(([label]) => label);
+  byId("event").replaceChildren(...events.map(([label, symbol, tone = ""]) => {
+    const chip = document.createElement("span");
+    chip.className = "event-chip";
+    chip.dataset.tone = tone;
+    chip.append(icon(symbol), label);
+    return chip;
+  }));
+  eventReadout.dataset.tone = completed(frame) || droppedOff ? "success" : outcomeIcons[frame.outcome] ? "failure"
+    : frame.blocked || frame.exposure ? "warning" : "";
   byId("step-reward").textContent = tick ? signed(Object.values(frame.rewards).reduce((sum, value) => sum + value, 0)) : "—";
   for (const output of document.querySelectorAll("[data-term]")) {
     output.textContent = tick ? signed(frame.rewards[output.dataset.term] ?? 0) : "—";
   }
   const location = ([column, row]) => `column ${String.fromCharCode(65 + column)}, row ${row + 1}`;
   const forklift = frame.forklift ? ` Forklift at ${location(frame.forklift)}.` : "";
-  map.setAttribute("aria-label", `Tick ${frame.tick}. Robot at ${location(frame.robot)}.${forklift}`);
+  const cargo = frame.delivery_tick == null ? "Carrying the parcel." : "Parcel at the dock.";
+  map.setAttribute("aria-label", `Tick ${frame.tick}. Robot at ${location(frame.robot)}.${forklift} ${cargo} ${events.map(([label]) => label).join(". ")}.`);
 }
 
 function suspendPlaybackFrames() {
@@ -515,16 +338,14 @@ function queuePlaybackFrame() {
 function stopPlayback() {
   playing = false;
   suspendPlaybackFrames();
-  play.textContent = "Play trace";
-  play.dataset.playing = "false";
+  setLabeledIcon(play, "Play trace", "play");
 }
 
-function setTrace(frames, label, autoplay, duration = 270) {
+function setTrace(frames, label, autoplay, duration = 270, mode = "episode") {
   stopPlayback();
   if (!frames?.length) return;
   trace = frames;
-  robotHeadings = traceHeadings(frames, "robot");
-  forkliftHeadings = traceHeadings(frames, "forklift");
+  traceMode = mode;
   tick = 0;
   stepProgress = 0;
   traceDuration = duration;
@@ -532,6 +353,13 @@ function setTrace(frames, label, autoplay, duration = 270) {
   scrub.disabled = frames.length < 2;
   play.disabled = frames.length < 2;
   byId("trace-title").textContent = label;
+  const patrol = frames.some((frame) => frame.forklift);
+  byId("map-key-patrol").hidden = !patrol;
+  byId("map-key-exposure").hidden = !patrol;
+  byId("map-key-return").hidden = mode === "reference" || !frames.some((frame) => frame.delivery_tick != null && frame.tick > frame.delivery_tick);
+  byId("map-key-outbound").hidden = mode === "reference";
+  byId("map-key-reference").hidden = mode !== "reference";
+  byId("map-key-preview").hidden = mode !== "preview";
   describeTick();
   paintMap(0);
   if (autoplay) startPlayback();
@@ -572,7 +400,7 @@ function finishPlayback() {
 
 function previewMission(roundTrip) {
   setTrace(roundTrip ? world.round_trip_demo : world.demo,
-    `Shortest-path preview · ${roundTrip ? "dock and back" : "dock only"} · no traffic`, false);
+    `Shortest-path preview · ${roundTrip ? "dock and back" : "dock only"} · no traffic`, false, 270, "preview");
 }
 
 function animate(timestamp) {
@@ -611,8 +439,7 @@ function startPlayback() {
     paintMap(0);
   }
   playing = true;
-  play.textContent = "Pause trace";
-  play.dataset.playing = "true";
+  setLabeledIcon(play, "Pause trace", "pause");
   queuePlaybackFrame();
 }
 
@@ -735,7 +562,8 @@ byId("reference").addEventListener("click", () => {
   if (!referenceTrace) return;
   following = false;
   queuedTrace = null;
-  setTrace(referenceTrace, `Fastest collision-free route · ${referenceTrace.length - 1} ticks`, !motion.matches);
+  episodeGrid.clearSelection();
+  setTrace(referenceTrace, `Fastest collision-free route · ${referenceTrace.length - 1} ticks`, !motion.matches, 270, "reference");
 });
 
 byId("replay").addEventListener("click", async () => {
@@ -756,6 +584,7 @@ byId("replay").addEventListener("click", async () => {
     evaluation.hidden = false;
     referenceTrace = replay.reference;
     byId("reference").hidden = false;
+    episodeGrid.clearSelection();
     setTrace(replay.frames, `Policy replay after episode ${number(result.episode, 0)} · ${outcomeLabels[result.outcome]}`, !motion.matches);
   } catch (error) {
     showError(error.message);
@@ -778,6 +607,7 @@ play.addEventListener("click", () => {
 
 byId("follow").addEventListener("click", () => {
   if (!latestTrace) return;
+  episodeGrid.clearSelection();
   following = !motion.matches;
   queuedTrace = null;
   setTrace(latestTrace.frames, latestTrace.label, following, 110);
@@ -832,16 +662,18 @@ byId("export").addEventListener("click", () => {
 
 new ResizeObserver(paintChart).observe(chart);
 new ResizeObserver(() => {
-  buildFloorLayer();
+  warehouseMap?.resize(map);
   paintCurrentMap();
 }).observe(map);
 
 Promise.all([request("warehouse"), request("hyperparameters")]).then(([data, schema]) => {
   world = data;
+  warehouseMap = new WarehouseMap(data);
+  warehouseMap.resize(map);
+  for (const key of document.querySelectorAll("[data-map-key]")) warehouseMap.drawLegend(key);
   hyperparameterSchema = schema;
   showHyperparameters();
   byId("advanced-settings").hidden = false;
-  buildFloorLayer();
   status = "Ready";
   previewMission(byId("mission").value === "return");
   refreshMetrics();
